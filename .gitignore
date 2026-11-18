@@ -1,0 +1,15 @@
+# Rust / Tauri
+target/
+src-tauri/gen/
+
+# Node（Phase 2 引入 Vite 前端后生效）
+node_modules/
+dist/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
