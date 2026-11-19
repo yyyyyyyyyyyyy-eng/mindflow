@@ -3,8 +3,8 @@
 > 本文件由 code-review-worklog 技能自动维护：记录每次需求澄清的问答、代码变更、Bug 及修复方案、所有需求及其实现状态。请保留全部结构标题与表格，条目按时间顺序追加。
 
 - **日志创建时间**：2026-11-18 19:46:54
-- **最近更新**：2026-11-18 20:03:26
-- **最新版本**：v0.2.0
+- **最近更新**：2026-11-19 11:10:44
+- **最新版本**：v0.6.1
 ---
 
 ## 需求跟踪
@@ -13,6 +13,7 @@
 |----|---------|---------|------|------|
 | REQ-001 | Phase 0：环境镜像配置 + 双仓库脚手架落地（mindflow / mindflow-web）+ GitHub 远端创建 | 2026-11-18 19:46:54 | 已完成 | 双仓库已推送 github.com/yyyyyyyyyyyyy-eng/{mindflow,mindflow-web}；cargo check 与 pnpm build 双验证通过 |
 | REQ-002 | 移动端浏览器适配：网页版 <768px 布局与触控优化（大纲优先/底部抽屉/触控目标44px/pinch缩放） | 2026-11-18 20:03:26 | 待实现 | 分工给网页版对话执行（HANDOFF_PROMPTS.md 已含此要求） |
+| REQ-003 | 集成两个分身交付物：算法实验室并入 packages/core（验收→迁移→补 service/themes→测试全绿→推送）；网页版 13 条提交补推远端 | 2026-11-19 11:08:10 | 进行中 | 验收已通过：lab 109 用例实跑全绿、bench 达标；web build+tsc 实跑通过 |
 
 <!--
   状态取值：待实现 / 进行中 / 已完成 / 已取消
@@ -77,6 +78,12 @@
 - **来源变更**：CHG-001
 - **状态**：待确认
 
+### EXP-003 ｜ 2026-11-19 11:10:44
+- **经验内容**：worklog.py 报「日志文件不存在」→ 脚本以调用时工作目录定位 WORKLOG.md，在会话默认目录调用会找错项目 → 一律显式传 workdir=项目根再调用（实测 2026-11-19）
+- **候选目标**：code-review-worklog
+- **来源变更**：CHG-007
+- **状态**：待确认
+
 ## 变更历史
 
 <!-- 每次代码生成 / 修改 / 删除 / 清理后，由脚本（add-change）在此节末尾追加一个条目。格式示例：
@@ -117,6 +124,36 @@
 - **需求关联**：REQ-001
 - **变更摘要**：双仓库协作契约 v0.1（类型/布局/序列化/存储/UI出口 + §7.1 移动端适配硬性要求）与开发计划（含分工章节）
 - **自查结论**：通过（章节结构自查：§7.1 编号错乱已当轮修复）
+
+### CHG-006 ｜ 2026-11-18 20:10:38 ｜ 新增
+- **文件**：`~/.ssh/config`、`~/.ssh/id_ed25519`
+- **需求关联**：REQ-001
+- **变更摘要**：GitHub 推送备用通道预备：生成 ed25519 密钥 + ssh config 走 ssh.github.com:443；密钥尚未注册到 GitHub（gh 令牌缺 admin:public_key scope，需用户交互授权），HTTPS 恢复后已成功推送
+- **自查结论**：通过（nc 验证 443 可达；推送已确认 a90cab6..6a44069）
+
+### CHG-007 ｜ 2026-11-19 11:10:43 ｜ 新增
+- **文件**：`packages/core/{src/layout`、`src/io`、`src/types.ts`、`test`、`bench}`、`pnpm-workspace.yaml`、`package.json`
+- **需求关联**：REQ-003
+- **变更摘要**：算法实验室交付物验收并入 packages/core：7 结构布局 + Markdown/OPML/XMind 序列化 + 109 用例原位全绿；workspace 骨架建立
+- **自查结论**：通过（vitest 109 lab 用例在集成位置全绿；tsc --noEmit exit 0）
+
+### CHG-008 ｜ 2026-11-19 11:10:43 ｜ 新增
+- **文件**：`packages/core/src/service.ts`、`packages/core/test/service.test.ts`
+- **需求关联**：REQ-003
+- **变更摘要**：DocumentService 实现（契约 §6）：Immer 双段 produce（无操作不入栈）、undo/redo、title 首行镜像、updatedAt 刷新、2s 防抖自动保存（失败不中断编辑）、flushSave 串行等待在途保存
+- **自查结论**：通过（7 用例真实运行全绿；tsc exit 0）
+
+### CHG-009 ｜ 2026-11-19 11:10:44 ｜ 新增
+- **文件**：`packages/core/src/themes.ts`、`packages/core/test/themes.test.ts`、`packages/core/src/index.ts`、`packages/core/README.md`
+- **需求关联**：REQ-003
+- **变更摘要**：内置主题 6 个自 web stub 移植归位（含未知 id 回退）+ 包出口 index.ts + 模块地图 README
+- **自查结论**：通过（3 用例全绿；tsc exit 0；包出口经 tsc 编译验证）
+
+### CHG-010 ｜ 2026-11-19 11:10:44 ｜ 修改
+- **文件**：`CONTRACT.md`
+- **需求关联**：REQ-003
+- **变更摘要**：契约 §1 裁决：默认 idGen 由 nanoid 改为 crypto.randomUUID（零依赖等价实现，采纳算法实验室偏离建议）
+- **自查结论**：通过（Markdown 文档，豁免门禁；裁决已在文件中注明日期与理由）
 
 ## Bug 记录
 

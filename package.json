@@ -1,0 +1,12 @@
+{
+  "name": "mindflow-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "MindFlow 桌面权威仓库（引擎 + 共享 UI + Tauri 壳）",
+  "scripts": {
+    "core:test": "pnpm -C packages/core test",
+    "core:typecheck": "pnpm -C packages/core typecheck",
+    "core:bench": "pnpm -C packages/core bench"
+  }
+}

@@ -15,7 +15,7 @@
 | 语言规范 | TypeScript `strict`、ESM、2 空格缩进、禁用 `any`（确需处注释说明） |
 | 注释 | 英文标识符 + **中文注释** |
 | 测试 | vitest；布局/序列化用快照 + 往返全等断言 |
-| id 生成 | 注入式 `idGen?: () => string`（默认 nanoid；测试用计数器保证确定性） |
+| id 生成 | 注入式 `idGen?: () => string`（默认 `crypto.randomUUID`——2026-11-19 集成裁决：以零依赖等价实现替代 nanoid，见 `packages/core/src/io/id.ts`；测试一律注入计数器保证确定性） |
 
 ---
 
