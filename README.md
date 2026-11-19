@@ -9,13 +9,14 @@
 - 画布：@xyflow/react（React Flow）v12
 - 引擎：`packages/core`（文档模型 / 布局算法 / undo·redo / 导入导出，纯 TS）
 
-## 目录（Phase 1 起演进）
+## 目录
 
 ```
-├─ ui/               # 静态占位前端（Phase 2 替换为 Vite + React）
-├─ src-tauri/        # Rust 壳：窗口、文件系统、iCloud 目录
-├─ packages/core/     # 共享引擎（Phase 1 创建，网页仓库以 npm 包引用）
-└─ CONTRACT.md       # 双仓库协作契约（类型 / 接口 / 命名约定）
+├─ packages/core/     # 共享引擎：布局算法 / 序列化 / 主题 / DocumentService（119 用例）
+├─ packages/ui/       # 共享 UI 组件：React Flow 画布 / 大纲 / 检查器 / 主题库
+├─ apps/desktop/      # 桌面应用（Vite + React + Tailwind）
+├─ src-tauri/         # Rust 壳：窗口、文件系统、iCloud 目录
+└─ CONTRACT.md        # 双仓库协作契约（类型 / 接口 / 命名约定）
 ```
 
 ## 开发

@@ -1,0 +1,29 @@
+{
+  "name": "mindflow-desktop",
+  "version": "0.1.0",
+  "description": "MindFlow 桌面应用（Vite + React 前端，经 Tauri 壳运行）",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.4.0",
+    "mindflow-core": "workspace:*",
+    "mindflow-ui": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^7.0.0"
+  }
+}

@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+/* 节点字体变量：MindNode 与 measureText 共用同一字体栈（契约 §3 对齐要求） */
+:root {
+  --mind-font: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}

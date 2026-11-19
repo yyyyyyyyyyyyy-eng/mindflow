@@ -4,7 +4,10 @@
   "version": "0.1.0",
   "identifier": "com.yiyi.mindflow",
   "build": {
-    "frontendDist": "../ui"
+    "frontendDist": "../apps/desktop/dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "pnpm -C apps/desktop dev",
+    "beforeBuildCommand": "pnpm -C apps/desktop build"
   },
   "app": {
     "withGlobalTauri": true,

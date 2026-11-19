@@ -203,9 +203,12 @@ export function createDocumentService(
 ## 7. UI 组件包出口（`mindflow-ui`，主对话实现，网页版消费）
 
 ```tsx
-<MindMapCanvas doc={MindDoc} onDocChange={(next: MindDoc) => void} />
-<OutlineView    doc={MindDoc} onDocChange={(next: MindDoc) => void} />
-<Inspector     node={DocNode} onNodeChange={(patch: Partial<DocNode>) => void} />
+// onDocChange 为 mutator 语义（2026-11-19 修订：组件给草稿函数直连 DocumentService.update，撤销粒度天然正确）
+<MindMapCanvas doc={MindDoc} onDocChange={(mutator: (draft: MindDoc) => void) => void} theme={Theme}
+               selectedId={NodeId | null} onSelectedChange={(id: NodeId | null) => void} />
+<OutlineView    doc={MindDoc} onDocChange={(mutator: (draft: MindDoc) => void) => void}
+                selectedId={NodeId | null} onSelectedChange={(id: NodeId | null) => void} />
+<Inspector     node={DocNode | null} onNodeChange={(id: NodeId, patch: Partial<DocNode>) => void} onDelete={(id: NodeId) => void} />
 <ThemeGallery  themes={Theme[]} current={string} onSelect={(themeId: string) => void} />
 ```
 
