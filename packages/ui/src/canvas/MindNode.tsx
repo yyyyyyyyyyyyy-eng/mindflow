@@ -54,10 +54,11 @@ export interface MindNodeProps extends NodeProps<MindFlowNode> {
   onCommitText: (id: string, text: string) => void;      // 行内编辑提交
   onToggleCollapse: (id: string) => void;                // 折叠/展开（左侧 −/+）
   onAddChild: (id: string) => void;                      // 右侧 +：添加子层级
+  onDropImage: (id: string, dataUri: string) => void;    // 拖拽图片到节点
 }
 
 export function MindNode({
-  id, data, selected, onCommitText, onToggleCollapse, onAddChild,
+  id, data, selected, onCommitText, onToggleCollapse, onAddChild, onDropImage,
 }: MindNodeProps) {
   const [draft, setDraft] = useState<string | null>(null);  // null=非编辑态
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -101,14 +102,27 @@ export function MindNode({
   };
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div
+      style={{ position: 'relative', width: '100%', height: '100%' }}
+      onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); }}
+      onDrop={(e) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files?.[0];
+        if (file && file.type.startsWith('image/') && file.size < 500 * 1024) {
+          const reader = new FileReader();
+          reader.onload = () => { if (typeof reader.result === 'string') onDropImage(id, reader.result); };
+          reader.readAsDataURL(file);
+        }
+      }}
+    >
       {/* RF v12 要求节点具备 Handle 才挂载边组——几何由 pinA/pinB 驱动，Handle 仅作挂载锚（隐形、无交互） */}
       <Handle type="source" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
       <Handle type="target" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
 
       <div className="mf-node-body" style={box} title={data.hasNote ? '有备注' : undefined}>
         {data.text}
-        {data.hasNote && <span style={{ marginLeft: 4, fontSize: 10 }}>▤</span>}
+        {data.hasImage && <span style={{ marginLeft: 4, fontSize: 10 }}>🖼</span>}
+        {data.hasNote && <span style={{ marginLeft: 2, fontSize: 10 }}>▤</span>}
       </div>
 
       {/* 顶上小钉：纯装饰占位（钉子+细绳预留位），无任何交互 */}

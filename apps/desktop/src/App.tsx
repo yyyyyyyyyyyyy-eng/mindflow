@@ -275,6 +275,7 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
             theme={theme}
             selectedId={selectedId}
             onSelectedChange={setSelectedId}
+            onDropImage={(id, dataUri) => { onDocChange((d) => { const l = findNode(d.root, id); if (l) l.node.image = dataUri; }); }}
           />
         </main>
 
@@ -302,6 +303,7 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
             isRoot={selectedLoc?.parent === null}
             onNodeChange={patchNode}
             onDelete={deleteNode}
+            onImage={(id, dataUri) => { patchNode(id, { image: dataUri }); }}
           />
         </aside>
       </div>

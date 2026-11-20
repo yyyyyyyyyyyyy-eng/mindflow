@@ -16,6 +16,8 @@ export interface InspectorProps {
   /** 样式补丁提交（App 侧负责套到对应节点上） */
   onNodeChange: (id: NodeId, patch: Partial<DocNode>) => void;
   onDelete?: (id: NodeId) => void;
+  /** 图片上传（data URI） */
+  onImage?: (id: NodeId, dataUri: string) => void;
 }
 
 const SHAPES: Array<{ value: ShapeKind; label: string }> = [
@@ -28,7 +30,7 @@ const SHAPES: Array<{ value: ShapeKind; label: string }> = [
 
 const PRIORITIES = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 
-export function Inspector({ node, isRoot = false, onNodeChange, onDelete }: InspectorProps) {
+export function Inspector({ node, isRoot = false, onNodeChange, onDelete, onImage }: InspectorProps) {
   const [draftText, setDraftText] = useState('');
   const [draftNote, setDraftNote] = useState('');
   const [draftLabels, setDraftLabels] = useState('');
@@ -102,6 +104,50 @@ export function Inspector({ node, isRoot = false, onNodeChange, onDelete }: Insp
         >
           清除自定义位置（偏移 {node.pos.dx}, {node.pos.dy}）
         </button>
+      )}
+
+      {/* 节点图片 */}
+      {onImage && (
+        <div style={{ ...row, flexDirection: 'column', alignItems: 'stretch' }}>
+          <span style={{ marginBottom: 4 }}>图片</span>
+          {node.image ? (
+            <div style={{ position: 'relative' }}>
+              <img
+                src={node.image}
+                alt="节点图片"
+                style={{ width: '100%', borderRadius: 8, border: '1px solid #e4e7ec', marginBottom: 6 }}
+              />
+              <button
+                type="button"
+                onClick={() => onNodeChange(node.id, { image: undefined })}
+                style={{ ...input, cursor: 'pointer', color: '#f04438', textAlign: 'center' }}
+              >
+                移除图片
+              </button>
+            </div>
+          ) : (
+            <label style={{
+              ...input, cursor: 'pointer', textAlign: 'center', color: '#475467',
+              border: '1px dashed #d0d5dd', borderRadius: 8, padding: '14px 8px',
+              display: 'block',
+            }}>
+              📁 选择图片（≤500KB）
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = '';
+                  if (!f || !f.type.startsWith('image/') || f.size > 500 * 1024) return;
+                  const reader = new FileReader();
+                  reader.onload = () => { if (typeof reader.result === 'string') onImage(node.id, reader.result); };
+                  reader.readAsDataURL(f);
+                }}
+              />
+            </label>
+          )}
+        </div>
       )}
 
       <div style={row}>

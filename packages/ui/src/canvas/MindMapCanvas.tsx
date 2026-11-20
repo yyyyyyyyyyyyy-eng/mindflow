@@ -37,6 +37,8 @@ export interface MindMapCanvasProps {
   /** 选中态：外部受控优先；不传则内部维持 */
   selectedId?: NodeId | null;
   onSelectedChange?: (id: NodeId | null) => void;
+  /** 节点图片拖拽上传（data URI） */
+  onDropImage?: (id: NodeId, dataUri: string) => void;
 }
 
 /** 调试探针（dev-only）：App 侧注入 window.__mfSendDebug，未注入时零开销 */
@@ -46,7 +48,7 @@ function sendDebug(p: Record<string, unknown>): void {
   w.__mfSendDebug?.(p);
 }
 
-function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelectedChange }: MindMapCanvasProps) {
+function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelectedChange, onDropImage }: MindMapCanvasProps) {
   // —— 测量与布局（文档投影的唯一几何来源） ——
   const measure = useMemo(
     () => measureText ?? createBrowserMeasureText(MIND_FONT_FAMILY),
@@ -226,10 +228,11 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
         onCommitText={commitText}
         onToggleCollapse={toggleCollapse}
         onAddChild={addChild}
+        onDropImage={onDropImage ?? (() => {})}
       />
     );
     return { mind: wrapper } as unknown as NodeTypes;
-  }, [addChild, commitText, toggleCollapse]);
+  }, [addChild, commitText, onDropImage, toggleCollapse]);
   const edgeTypes = useMemo(() => ({ branch: StringEdge }) as unknown as EdgeTypes, []);
 
   return (
@@ -268,6 +271,7 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
         fitViewOptions={{ padding: 0.25 }}
         minZoom={0.15}
         maxZoom={2.5}
+        onlyRenderVisibleElements={nodes.length > 100}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} color="#e4e7ec" />
       </ReactFlow>
