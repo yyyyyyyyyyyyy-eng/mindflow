@@ -3,8 +3,8 @@
 > 本文件由 code-review-worklog 技能自动维护：记录每次需求澄清的问答、代码变更、Bug 及修复方案、所有需求及其实现状态。请保留全部结构标题与表格，条目按时间顺序追加。
 
 - **日志创建时间**：2026-11-18 19:46:54
-- **最近更新**：2026-11-20 19:40:09
-- **最新版本**：v0.11.3
+- **最近更新**：2026-11-20 19:51:31
+- **最新版本**：v0.11.4
 ---
 
 ## 需求跟踪
@@ -17,6 +17,7 @@
 | REQ-004 | Phase 2：packages/ui（React Flow 画布/大纲/检查器/主题库）+ apps/desktop（Vite+React 前端 + Tauri 壳接线），浏览器实测验收 | 2026-11-19 11:35:16 | 已完成 | 画布/大纲/检查器/主题库 + apps/desktop 全部落地；15 单测 + 浏览器全链路冒烟零错误 |
 | REQ-005 | 编辑体验优化：①节点自定义位置（顶上十字手柄拖拽，子树整体随动）②节点右侧加号=加子层级（减号镜像到左侧）③大纲 Enter 任何层级一律创建子层级 ④工具栏主题按钮去 emoji | 2026-11-20 19:14:20 | 已完成 | 四项全部浏览器实测通过；已提交推送 a47442b |
 | REQ-006 | 实体感升级：①移动手柄→金属钉 ②节点→卡片 ③连线→钉间细绳（三层质感描边）④绳物理（Verlet 悬垂+鼠标悬停扰动晃动）⑤兼容 XMind：工具栏导入 .xmind/.mflow + 导出 .mflow | 2026-11-20 19:40:09 | 进行中 |  |
+| REQ-007 | 修复手柄拖拽瞬移 Bug：双拖拽竞争（React 合成 stopPropagation 拦不住 RF/d3 原生监听）+ 位移未按 zoom 校正 | 2026-11-20 19:51:31 | 已完成 | 瞬移根因消除（dragHandle 隔离 + zoom 校正）+ 修复中引入的回归一并修复；代码已推送 490b9d4；body 拖拽改父级路径未改动、待用户真实鼠标复验 |
 
 <!--
   状态取值：待实现 / 进行中 / 已完成 / 已取消
@@ -102,6 +103,12 @@
 - **经验内容**：合成 PointerEvent 上 setPointerCapture 会因 untrusted pointerId 抛 NotFoundError → 手柄拖拽实现先记录拖拽状态再 try/catch 捕获，捕获失败时按钮监听器兜底（自动化测试与真实用户两不误）（实测 2026-11-20, Chromium）
 - **候选目标**：browser
 - **来源变更**：CHG-019
+- **状态**：待确认
+
+### EXP-006 ｜ 2026-11-20 19:51:31
+- **经验内容**：React Flow v12 节点拖拽是 d3-drag 原生监听（挂节点 DOM，先于 React 根委托），React 合成 stopPropagation 拦不住 → 自定义手柄要么用官方 node.dragHandle 选择器隔离，要么挂原生监听；且合成 PointerEvent（isTrusted=false）驱动不了 d3 手势，d3 路径 e2e 只能靠真实输入验证（实测 2026-11-20, @xyflow/react v12, Chromium）
+- **候选目标**：browser
+- **来源变更**：CHG-022
 - **状态**：待确认
 
 ## 变更历史
@@ -241,6 +248,12 @@
 - **变更摘要**：检查器增「清除自定义位置」按钮（含当前偏移量显示）；工具栏主题按钮去调色盘 emoji
 - **自查结论**：通过（浏览器实测：拖拽重做并选中后按钮出现；header 文案=「主题」）
 
+### CHG-022 ｜ 2026-11-20 19:51:31 ｜ 修改
+- **文件**：`packages/ui/src/flowModel.ts`、`packages/ui/src/canvas/MindNode.tsx`、`packages/ui/test/flowModel.test.ts`
+- **需求关联**：REQ-007
+- **变更摘要**：手柄拖拽瞬移修复：flowModel 节点声明 dragHandle（d3 拖拽只从 .mf-node-body 发起）+ MindNode 位移按 viewport zoom 校正 + onHandleUp 先算后清 + 测试断言 dragHandle
+- **自查结论**：通过（zoom=0.15/0.394 两组实测：指针 96px→节点精确 96/zoom flow px、6 采样无抖动、撤销恢复 380.394/40、重做恢复、控制台零错误）
+
 ## Bug 记录
 
 <!-- 每个 Bug 由脚本（add-bug）在此节末尾追加一个条目，无论是否已修复都要记录。格式示例：
@@ -269,5 +282,18 @@
 - **现象**：ui 包 tsc 首轮 7 处错误：MindNode 漏解构 onCommitText/onToggleCollapse、RF 拖拽事件类型应为 DOM MouseEvent/TouchEvent、根样式缺 undefined 兜底（flowModel fill/textColor）、OutlineView 未用变量、CSS side-effect 导入缺声明；另 MindMapCanvas 两次自查发现占位残行（propsRef 未接真实赋值）当轮重写
 - **原因**：起草疏漏，未跑 tsc 即写入
 - **修复方案**：逐项修复 + globals.d.ts 声明 *.css 模块 + 复跑 tsc 全绿（ui/desktop 均 exit 0）
+- **状态**：已修复
+
+### BUG-004 ｜ 2026-11-20 19:51:31
+- **现象**：按住顶上手柄拖动到中途节点瞬移到远处（用户实测报告）
+- **原因**：①React Flow v12 节点拖拽由 d3 原生监听驱动（挂节点 DOM，先于 React 根委托），React 合成事件 stopPropagation 对其无效 → 同一手势双拖拽竞争互写节点位置 ②d3 位移按 屏幕距离/zoom 计算，fitView 后 zoom≈0.3~0.6 时位移被放大 1/zoom 倍，节点视觉上被甩飞
+- **修复方案**：①节点声明 dragHandle:'.mf-node-body'（RF 官方机制隔离）②手柄位移除以 getViewport().zoom，任何缩放 1:1 跟随
+- **关联变更**：CHG-019
+- **状态**：已修复
+
+### BUG-005 ｜ 2026-11-20 19:51:31
+- **现象**：修复过程中引入回归：onHandleUp 先置 posDrag.current=null 再经 dragPosFrom 取值 → TypeError(null.base)，提交静默不入文档
+- **原因**：重构 dragPosFrom 辅助函数时改变了取值与置空的顺序
+- **修复方案**：先 const pos = dragPosFrom(e) 再清空状态；浏览器复测 commitReallyInDoc=true + 零控制台错误
 - **状态**：已修复
 
