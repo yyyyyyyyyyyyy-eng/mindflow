@@ -13,7 +13,7 @@ import {
   Background, BackgroundVariant, ReactFlow, ReactFlowProvider,
   useEdgesState, useNodesState, useReactFlow,
 } from '@xyflow/react';
-import type { EdgeTypes, NodeProps, NodeTypes } from '@xyflow/react';
+import type { EdgeTypes, NodeChange, NodeProps, NodeTypes, OnNodesChange } from '@xyflow/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { produce } from 'immer';
 import {
@@ -37,6 +37,13 @@ export interface MindMapCanvasProps {
   /** 选中态：外部受控优先；不传则内部维持 */
   selectedId?: NodeId | null;
   onSelectedChange?: (id: NodeId | null) => void;
+}
+
+/** 调试探针（dev-only）：App 侧注入 window.__mfSendDebug，未注入时零开销 */
+type MfDebug = (payload: Record<string, unknown>) => void;
+function sendDebug(p: Record<string, unknown>): void {
+  const w = window as Window & { __mfSendDebug?: MfDebug };
+  w.__mfSendDebug?.(p);
 }
 
 function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelectedChange }: MindMapCanvasProps) {
@@ -81,6 +88,16 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
     setNodes(graph.nodes);
     setEdges(graph.edges);
   }, [graph, setNodes, setEdges]);
+
+  // d3 干扰侦测器：手柄拖拽期间若 RF 发出 position 变更 = d3 拖拽掺和（WKWebView 排障探针）
+  const handleNodesChange: OnNodesChange<MindFlowNode> = useCallback((changes: NodeChange<MindFlowNode>[]) => {
+    for (const c of changes) {
+      if (c.type === 'position' && c.dragging) {
+        sendDebug({ k: 'rf-position', id: c.id, x: c.position?.x, y: c.position?.y });
+      }
+    }
+    onNodesChange(changes);
+  }, [onNodesChange]);
 
   const rf = useReactFlow();
   // 结构切换后重新适配视野
@@ -166,28 +183,39 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
     });
   }, [onDocChange]);
 
-  // —— 拖拽改父级：松手时与其它节点相交 → 挂为其子；否则复位原位 ——
+  // —— 拖拽改父级：松手时与其它节点相交 → 挂为其子；否则复位投影原位 ——
+  // 复位必须重建引用：setNodes(同一数组引用) 会被 React 以 Object.is 相等 bail-out 跳过渲染，
+  // 节点滞留在 d3 拖放点（小 zoom 下 d3 位移按 1/zoom 放大，飞出视野 = 视觉消失，
+  // 且文档未变更 → 无撤销入口）。2026-11-20 全面排查修复。
+  const resetProjection = useCallback(() => {
+    setNodes(graphRef.current.nodes.map((n) => ({ ...n, position: { ...n.position } })));
+    setEdges(graphRef.current.edges.map((e) => ({ ...e })));
+  }, [setEdges, setNodes]);
+
   const onNodeDragStop = useCallback((_e: MouseEvent | TouchEvent, dragged: MindFlowNode) => {
-    if (dragged.id === doc.root.id) { setNodes(graphRef.current.nodes); return; }
+    const isRoot = dragged.id === doc.root.id;
+    if (isRoot) { resetProjection(); return; }
     const hits = rf.getIntersectingNodes({ id: dragged.id });
     const target = hits.find((h) =>
       h.id !== dragged.id && !inSubtree(doc.root, dragged.id, h.id),
     );
+    sendDebug({ k: 'rf-dragstop', id: dragged.id, hits: hits.length, reparent: target ? target.id : null });
     if (!target) {
-      setNodes(graphRef.current.nodes);                   // 未命中：回写投影复位
+      resetProjection();                                  // 未命中：复位投影（见上方 bail-out 注释）
       return;
     }
     onDocChange((d) => {
+      // 防御顺序：先确认目标存在，再摘除源节点——目标查不到时绝不删源（否则节点从文档中丢失）
+      const to = findNode(d.root, target.id);
+      if (!to) return;
       const loc = findNode(d.root, dragged.id);
       if (!loc?.parent) return;
       loc.parent.children.splice(loc.index, 1);
-      const to = findNode(d.root, target.id);
-      if (!to) return;
       to.node.collapsed = false;
       to.node.children.push(loc.node);
     });
     select(target.id);
-  }, [doc.root, onDocChange, rf, select, setNodes]);
+  }, [doc.root, onDocChange, resetProjection, rf, select]);
 
   // —— 键盘（编辑态由 textarea 自行消化，不冒泡到这里） ——
   const onKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -224,7 +252,7 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={onNodesChange}
+        onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}

@@ -66,6 +66,21 @@ function Shell({ service }: { service: DocumentService }) {
     [service],
   );
 
+  // 调试探针（dev-only）：前端遥测 → vite dev server /__mf-debug → 仓库根 mf-debug.log
+  useEffect(() => {
+    (window as Window & { __mfSendDebug?: (p: Record<string, unknown>) => void }).__mfSendDebug =
+      (p) => {
+        void fetch('/__mf-debug', {
+          method: 'POST',
+          body: JSON.stringify({ ...p, t: new Date().toISOString() }),
+          keepalive: true,
+        });
+      };
+    return () => {
+      delete (window as Window & { __mfSendDebug?: (p: Record<string, unknown>) => void }).__mfSendDebug;
+    };
+  }, []);
+
   // 页面关闭前立即落盘（防抖队列里可能还有未写盘内容）
   useEffect(() => {
     const handler = () => { void service.flushSave(); };

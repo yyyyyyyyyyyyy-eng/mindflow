@@ -12,6 +12,13 @@ import type { NodeProps } from '@xyflow/react';
 import type { PosOffset } from 'mindflow-core';
 import type { MindFlowNode } from '../flowModel';
 
+/** 调试探针（dev-only）：App 侧注入 window.__mfSendDebug，未注入时零开销 */
+type MfDebug = (payload: Record<string, unknown>) => void;
+function sendDebug(p: Record<string, unknown>): void {
+  const w = window as Window & { __mfSendDebug?: MfDebug };
+  w.__mfSendDebug?.(p);
+}
+
 /** 形状 → 圆角 / 裁剪样式（diamond 用 clip-path，underline 用底边线） */
 function shapeStyle(shape: MindFlowNode['data']['shape'], fill: string): React.CSSProperties {
   switch (shape) {
@@ -82,10 +89,12 @@ export function MindNode({
 
   // —— 十字手柄拖拽：预览走本地投影，松手一次性提交（撤销粒度=一次拖拽） ——
   // 位移除以画布缩放（zoom）：保证任何缩放下节点与指针严格 1:1 跟随
+  const moveSeq = useRef(0);
   const onHandleDown = (e: React.PointerEvent) => {
     e.stopPropagation();
     e.preventDefault();
     posDrag.current = { sx: e.clientX, sy: e.clientY, base: getBasePos(id) };
+    sendDebug({ k: 'pin-down', id, cx: e.clientX, cy: e.clientY, z: rf.getViewport().zoom, base: getBasePos(id) });
     try {
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     } catch {
@@ -103,13 +112,18 @@ export function MindNode({
   const onHandleMove = (e: React.PointerEvent) => {
     if (!posDrag.current) return;
     e.stopPropagation();
-    onPosPreview(id, dragPosFrom(e));
+    const pos = dragPosFrom(e);
+    if (moveSeq.current++ % 2 === 0) {
+      sendDebug({ k: 'pin-move', id, cx: e.clientX, cy: e.clientY, z: rf.getViewport().zoom, dx: pos.dx, dy: pos.dy });
+    }
+    onPosPreview(id, pos);
   };
   const onHandleUp = (e: React.PointerEvent) => {
     if (!posDrag.current) return;
     e.stopPropagation();
     const pos = dragPosFrom(e);          // 先计算再清状态（先清会 null.base 崩溃——2026-11-20 实测回归）
     posDrag.current = null;
+    sendDebug({ k: 'pin-up', id, cx: e.clientX, cy: e.clientY, dx: pos.dx, dy: pos.dy });
     onPosCommit(id, pos);
   };
   const onHandleCancel = () => {

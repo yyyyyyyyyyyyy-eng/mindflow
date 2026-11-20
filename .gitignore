@@ -13,3 +13,7 @@ dist/
 .idea/
 .vscode/
 *.swp
+
+# 临时调试遥测（dev server /__mf-debug 探针）
+mf-debug.log
+
