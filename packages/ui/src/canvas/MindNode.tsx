@@ -140,9 +140,6 @@ export function MindNode({
           />
         )}
         {data.text}
-        {data.fileCount > 0 && (
-          <span style={{ marginLeft: 4, fontSize: 10, pointerEvents: 'none' }}>📎{data.fileCount}</span>
-        )}
         {data.hasNote && <span style={{ marginLeft: 2, fontSize: 10 }}>▤</span>}
       </div>
 
