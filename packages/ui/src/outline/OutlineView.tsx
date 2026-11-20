@@ -109,21 +109,19 @@ export function OutlineView({ doc, onDocChange, selectedId, onSelectedChange }: 
           )}
 
           <input
-            key={`${row.id}:${row.text}`}                 // 外部变更（撤销）时重挂载取新值
             ref={(el) => {
               if (el) inputRefs.current.set(idx, el);
               else inputRefs.current.delete(idx);
             }}
-            defaultValue={row.text}
-            onFocus={() => onSelectedChange?.(row.id)}
-            onBlur={(e) => {
-              if (e.target.value !== row.text) {
-                onDocChange((d) => {
-                  const loc = findNode(d.root, row.id);
-                  if (loc) loc.node.text = e.target.value;
-                });
-              }
+            value={row.text}
+            onChange={(e) => {
+              const v = e.target.value;
+              onDocChange((d) => {
+                const loc = findNode(d.root, row.id);
+                if (loc) loc.node.text = v;
+              });
             }}
+            onFocus={() => onSelectedChange?.(row.id)}
             onKeyDown={(e) => {
               if (e.key === 'Backspace' && e.currentTarget.value === '' && row.id !== doc.root.id) {
                 e.preventDefault();
