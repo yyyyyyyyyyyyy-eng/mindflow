@@ -3,8 +3,8 @@
 > 本文件由 code-review-worklog 技能自动维护：记录每次需求澄清的问答、代码变更、Bug 及修复方案、所有需求及其实现状态。请保留全部结构标题与表格，条目按时间顺序追加。
 
 - **日志创建时间**：2026-11-18 19:46:54
-- **最近更新**：2026-11-20 21:42:36
-- **最新版本**：v0.18.2
+- **最近更新**：2026-11-20 21:45:06
+- **最新版本**：v0.18.3
 ---
 
 ## 需求跟踪
@@ -95,6 +95,11 @@
 - **需求关联**：REQ-019
 - **提问**：APP 端创建/删除按钮是否恢复？
 - **回答**：没有——仍然按不动
+
+### CLAR-011 ｜ 2026-11-20 21:43:45
+- **需求关联**：REQ-019
+- **提问**：「文件导不入」具体是什么操作场景？
+- **回答**：主页导入文件（.xmind/.mflow/.md 等）拖入或点按钮选择文件后无反应
 
 ## 经验暂存
 
@@ -418,6 +423,12 @@
 - **需求关联**：REQ-019
 - **变更摘要**：修 APP 端按钮无反应：①Tauri 2 capabilities/default.json（fs:scope-home + read/write/mkdir/remove/exists/read-dir + dialog + core:path），fs:allow-home-dir 权限名不存在→用 fs:scope-home+allow-home-read/write ②adapter 探测降级（tauriFsAdapter.list() 试跑失败→自动切 localStorage，保证按钮永远可用）
 - **自查结论**：通过（cargo check 0.57s 通过；tsc 0 错误；构建通过）
+
+### CHG-040 ｜ 2026-11-20 21:45:06 ｜ 修改
+- **文件**：`apps/desktop/src/lib/importFile.ts`、`apps/desktop/src/components/HomePage.tsx`、`apps/desktop/src/App.tsx`
+- **需求关联**：REQ-019
+- **变更摘要**：修文件导不入：Tauri WKWebView 中 <input type=file> 不弹原生文件选择器 → Tauri 环境改走 @tauri-apps/plugin-dialog 原生对话框 + plugin-fs 读取（importViaTauriDialog）；浏览器环境保留 input type=file；HomePage 自动分流（isTauri）
+- **自查结论**：通过（tsc 0 错误；构建通过；Tauri dialog 插件已在 capabilities 中声明）
 
 ## Bug 记录
 

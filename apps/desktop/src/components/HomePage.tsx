@@ -6,11 +6,13 @@
 import { useRef } from 'react';
 import type { MindDoc } from 'mindflow-core';
 import { DocThumbnail } from 'mindflow-ui';
+import { isTauri, importViaTauriDialog } from '../lib/importFile';
 
 export interface HomePageProps {
   docs: MindDoc[];
   onCreateBlank: () => void;
   onImportFile: (file: File) => void;
+  onImportDoc: (doc: MindDoc) => void;
   onOpen: (id: string) => void;
   onDelete: (id: string) => void;
 }
@@ -20,8 +22,19 @@ function fmtTime(iso: string): string {
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleString('zh-CN', { hour12: false });
 }
 
-export default function HomePage({ docs, onCreateBlank, onImportFile, onOpen, onDelete }: HomePageProps) {
+export default function HomePage({ docs, onCreateBlank, onImportFile, onImportDoc, onOpen, onDelete }: HomePageProps) {
   const fileRef = useRef<HTMLInputElement>(null);
+
+  /** 导入：Tauri 走原生对话框，浏览器走 input type=file */
+  const handleImport = () => {
+    if (isTauri) {
+      void importViaTauriDialog()
+        .then((doc) => { if (doc) onImportDoc(doc); })
+        .catch(() => { /* 用户取消或解析失败 */ });
+    } else {
+      fileRef.current?.click();
+    }
+  };
 
   return (
     <div className="flex h-full flex-col bg-gray-50">
@@ -42,10 +55,10 @@ export default function HomePage({ docs, onCreateBlank, onImportFile, onOpen, on
           </button>
           <button
             type="button"
-            onClick={() => fileRef.current?.click()}
+            onClick={handleImport}
             className="rounded-xl border border-gray-300 bg-white px-6 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
           >
-            导入文件（.xmind / .md / .opml / .mflow）
+            导入文件
           </button>
           <input
             ref={fileRef}

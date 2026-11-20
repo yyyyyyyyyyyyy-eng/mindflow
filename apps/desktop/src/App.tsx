@@ -84,10 +84,13 @@ export function App() {
       const imported = await parseImportFile(file);
       await adapter.save(imported);
       openEditor(imported);
-    } catch (err) {
-      alert(`导入失败：${err instanceof Error ? err.message : String(err)}`);
-    }
-  }, [openEditor]);
+    } catch { /* 浏览器模式解析失败静默 */ }
+  }, [openEditor, adapter]);
+
+  const importDocAtHome = useCallback(async (doc: MindDoc) => {
+    await adapter.save(doc);
+    openEditor(doc);
+  }, [openEditor, adapter]);
 
   const openFromHome = useCallback((id: string) => {
     void (async () => {
@@ -119,6 +122,7 @@ export function App() {
         docs={homeDocs}
         onCreateBlank={() => { void createBlank(); }}
         onImportFile={(f) => { void importAtHome(f); }}
+        onImportDoc={(d) => { void importDocAtHome(d); }}
         onOpen={openFromHome}
         onDelete={(id) => { void deleteDoc(id); }}
       />
