@@ -3,8 +3,8 @@
 > 本文件由 code-review-worklog 技能自动维护：记录每次需求澄清的问答、代码变更、Bug 及修复方案、所有需求及其实现状态。请保留全部结构标题与表格，条目按时间顺序追加。
 
 - **日志创建时间**：2026-11-18 19:46:54
-- **最近更新**：2026-11-20 21:55:38
-- **最新版本**：v0.18.6
+- **最近更新**：2026-11-20 21:56:28
+- **最新版本**：v0.18.7
 ---
 
 ## 需求跟踪
@@ -31,7 +31,7 @@
 | REQ-018 | ①修主页删除无反应 ②MindNode 内联渲染图片（非仅指示器）③全面文件管理（Tauri 原生文件系统 + iCloud 默认目录 + 保存/打开/自动保存） | 2026-11-20 21:31:32 | 已完成 | 删除/图片内联/文件系统全部落地；Tauri APP 文件存储模式待用户实测 |
 | REQ-019 | 文件附件重构：①画布自由拖入（无需选中节点）②一个方块支持多种多个文件 ③节点上回形针按钮可导入 ④删除编辑器工具栏的「导入」按钮（只保留导出） | 2026-11-20 21:36:06 | 已完成 | capabilities 权限修正 + adapter 探测降级双保险 |
 | REQ-020 | 大纲文本实时同步画布：输入框从 defaultValue+onBlur 改为受控 value+onChange（打字即更新文档，画布实时重布局） | 2026-11-20 21:47:23 | 已完成 | 大纲→画布实时同步实测通过 |
-| REQ-021 | Bug 修复：①编辑器内回形针📎选文件后节点内容无变化 ②画布拖文件无效 ③大纲↔画布文本编辑实时同步（上轮只修了大纲→画布单向，画布行内编辑→大纲方向未验证） | 2026-11-20 21:50:07 | 已完成 | 回形针原生对话框 + 画布↔大纲双向实时同步实测通过 |
+| REQ-021 | Bug 修复：①编辑器内回形针📎选文件后节点内容无变化 ②画布拖文件无效 ③大纲↔画布文本编辑实时同步（上轮只修了大纲→画布单向，画布行内编辑→大纲方向未验证） | 2026-11-20 21:50:07 | 已完成 | dialog/fs 权限补全 + filter 修正 |
 
 <!--
   状态取值：待实现 / 进行中 / 已完成 / 已取消
@@ -455,6 +455,12 @@
 - **变更摘要**：全位置实时同步补完：Inspector 文本/备注/标签三个输入框从 defaultValue+onBlur 改为受控 value+onChange（打字即走文档→画布+大纲同时跟随）；删除全部本地草稿状态（draftText/draftNote/draftLabels/boundId/commit 函数），Inspector 完全由文档驱动
 - **自查结论**：通过（36 用例全绿；tsc 0 错误；浏览器实测：大纲改字→画布 ✓ Inspector ✓ 三方同时更新）
 
+### CHG-044 ｜ 2026-11-20 21:56:28 ｜ 修改
+- **文件**：`src-tauri/capabilities/default.json`、`apps/desktop/src/lib/attachments.ts`
+- **需求关联**：REQ-021
+- **变更摘要**：修文件对话框不弹：①capabilities 补 dialog:allow-open/dialog:allow-save/fs:allow-read-file（dialog:default 不含 open/save）②附件对话框移除 extensions=['*'] 无效 filter（改为不设 filter 允许全部文件类型）
+- **自查结论**：通过（cargo check 1.22s；tsc 0 错误；build 579ms）
+
 ## Bug 记录
 
 <!-- 每个 Bug 由脚本（add-bug）在此节末尾追加一个条目，无论是否已修复都要记录。格式示例：
@@ -553,4 +559,11 @@
 - **修复方案**：①初始 adapter 永远 localStorageAdapter（保证按钮立即可用）②探测升级改为 save+delete 往返校验（真正读写成功才切 tauriFsAdapter）③refreshHome 依赖数组加 adapter
 - **关联变更**：CHG-039
 - **状态**：已修复
+
+### BUG-014 ｜ 2026-11-20 21:56:13
+- **现象**：编辑器回形针📎和主页导入均无法打开文件选择对话框
+- **原因**：①capabilities 缺 dialog:allow-open/dialog:allow-save/fs:allow-read-file（dialog:default 不含 open/save 操作）②附件对话框 filter extensions=['*'] 在 Tauri 中无效（应省略 filter 或用真实扩展名）
+- **修复方案**：补 capabilities 权限 + 移除 '*' filter
+- **关联变更**：CHG-042
+- **状态**：未修复
 

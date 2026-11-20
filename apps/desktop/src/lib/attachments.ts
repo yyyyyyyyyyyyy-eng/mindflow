@@ -56,7 +56,7 @@ export async function openFileDialogForAttachments(): Promise<File[]> {
     const { readFile } = await import('@tauri-apps/plugin-fs');
     const result = await open({
       multiple: true,
-      filters: [{ name: '所有文件', extensions: ['*'] }],
+      // 不设 filter：允许选择所有文件类型
     });
     if (!result) return [];
     const paths = Array.isArray(result) ? result : [result];

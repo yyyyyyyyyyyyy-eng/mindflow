@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "MindFlow 文件系统 + 对话框权限",
+  "description": "MindFlow 文件系统 + 对话框权限（含 open/save/read 二进制）",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -10,11 +10,14 @@
     "fs:allow-home-read",
     "fs:allow-home-write",
     "fs:allow-read-dir",
+    "fs:allow-read-file",
     "fs:allow-read-text-file",
     "fs:allow-write-text-file",
     "fs:allow-remove",
     "fs:allow-exists",
     "fs:allow-mkdir",
-    "dialog:default"
+    "dialog:default",
+    "dialog:allow-open",
+    "dialog:allow-save"
   ]
 }
