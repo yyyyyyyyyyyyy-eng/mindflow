@@ -42,28 +42,28 @@ type View = { kind: 'home' } | { kind: 'editor'; service: DocumentService; docId
 export function App() {
   const [view, setView] = useState<View>({ kind: 'home' });
   const [homeDocs, setHomeDocs] = useState<MindDoc[]>([]);
-  /** 运行时探测的存储适配器（Tauri fs 失败自动降级 localStorage） */
-  const [adapter, setAdapter] = useState<StorageAdapter>(() => {
-    const isTauri = '__TAURI_INTERNALS__' in window || '__TAURI__' in window;
-    return isTauri ? tauriFsAdapter : localStorageAdapter;
-  });
+  /** 运行时探测的存储适配器：初始永远 localStorage（保证按钮可用），Tauri fs 探测成功后升级 */
+  const [adapter, setAdapter] = useState<StorageAdapter>(localStorageAdapter);
 
-  // 探测：Tauri 环境下试跑一次 list()，失败即降级 localStorage
+  // 探测：Tauri 环境下试跑一次 save+list 往返，成功才升级 tauriFsAdapter
   useEffect(() => {
     if (!('__TAURI_INTERNALS__' in window || '__TAURI__' in window)) return;
-    void tauriFsAdapter.list()
-      .then(() => setAdapter(tauriFsAdapter))
-      .catch(() => {
-        console.warn('[MindFlow] Tauri 文件系统不可用（权限或插件配置），降级 localStorage');
-        setAdapter(localStorageAdapter);
-      });
+    const probe = async () => {
+      try {
+        const test = { formatVersion: 1 as const, id: '__probe__', title: '', structure: 'mindmap' as const, theme: 'classic', root: { id: '__probe_root__', text: '', children: [] }, createdAt: '', updatedAt: '' };
+        await tauriFsAdapter.save(test);
+        await tauriFsAdapter.delete('__probe__');
+        setAdapter(tauriFsAdapter);                         // 真正读写删成功才升级
+      } catch { /* 留在 localStorage */ }
+    };
+    void probe();
   }, []);
 
   const refreshHome = useCallback(async () => {
     const metas = await adapter.list();
     const docs = await Promise.all(metas.map((m) => adapter.load(m.id)));
     setHomeDocs(docs.filter((d): d is MindDoc => d !== null));
-  }, []);
+  }, [adapter]);
 
   useEffect(() => {
     if (view.kind === 'home') void refreshHome();
