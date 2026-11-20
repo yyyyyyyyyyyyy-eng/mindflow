@@ -3,8 +3,8 @@
 > 本文件由 code-review-worklog 技能自动维护：记录每次需求澄清的问答、代码变更、Bug 及修复方案、所有需求及其实现状态。请保留全部结构标题与表格，条目按时间顺序追加。
 
 - **日志创建时间**：2026-11-18 19:46:54
-- **最近更新**：2026-11-20 21:53:12
-- **最新版本**：v0.18.5
+- **最近更新**：2026-11-20 21:55:38
+- **最新版本**：v0.18.6
 ---
 
 ## 需求跟踪
@@ -448,6 +448,12 @@
 - **需求关联**：REQ-021
 - **变更摘要**：①编辑器内回形针📎改走 onOpenFileDialog 回调（App 层分流：Tauri 走 plugin-dialog 原生对话框 + plugin-fs 读取文件→File；浏览器走动态 input type=file）——修 input type=file 在 WKWebView 不弹 ②画布行内编辑实时同步大纲：textarea onChange 新增 onLiveUpdateText（不退出编辑态、只更新文档）；useEffect 依赖从 [editing,text] 改为 [editing]（否则 liveUpdateText 回写后 select() 全选→下一键覆盖整段）
 - **自查结论**：通过（36 用例全绿；tsc 0 错误；浏览器实测：画布双击编辑→大纲 input 值实时出现同文本 ✓ 回形针可见 ✓）
+
+### CHG-043 ｜ 2026-11-20 21:55:38 ｜ 修改
+- **文件**：`packages/ui/src/inspector/Inspector.tsx`
+- **需求关联**：REQ-020
+- **变更摘要**：全位置实时同步补完：Inspector 文本/备注/标签三个输入框从 defaultValue+onBlur 改为受控 value+onChange（打字即走文档→画布+大纲同时跟随）；删除全部本地草稿状态（draftText/draftNote/draftLabels/boundId/commit 函数），Inspector 完全由文档驱动
+- **自查结论**：通过（36 用例全绿；tsc 0 错误；浏览器实测：大纲改字→画布 ✓ Inspector ✓ 三方同时更新）
 
 ## Bug 记录
 

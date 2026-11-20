@@ -4,7 +4,6 @@
 // 「跟随主题」按钮清除节点级覆盖（style 字段逐个回退为 undefined）。
 // ============================================================================
 
-import { useState } from 'react';
 import type { DocNode, NodeId, NodeStyle } from 'mindflow-core';
 
 /** 节点形状种类（契约 §2 NodeStyle.shape） */
@@ -31,20 +30,6 @@ const SHAPES: Array<{ value: ShapeKind; label: string }> = [
 const PRIORITIES = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 
 export function Inspector({ node, isRoot = false, onNodeChange, onDelete, onDropFiles }: InspectorProps) {
-  const [draftText, setDraftText] = useState('');
-  const [draftNote, setDraftNote] = useState('');
-  const [draftLabels, setDraftLabels] = useState('');
-  const [boundId, setBoundId] = useState<NodeId | null>(null);
-
-  // 选中节点切换时重置草稿（外部撤销则由 key 重挂载兜底）
-  const bound = node !== null && boundId !== node.id;
-  if (bound) {
-    setBoundId(node.id);
-    setDraftText(node.text);
-    setDraftNote(node.note ?? '');
-    setDraftLabels((node.labels ?? []).join(','));
-  }
-
   if (node === null) {
     return (
       <div style={{ padding: 16, color: '#667085', fontSize: 13 }}>
@@ -55,12 +40,6 @@ export function Inspector({ node, isRoot = false, onNodeChange, onDelete, onDrop
 
   const style = node.style ?? {};
   const icons = node.icons ?? [];
-
-  const commitText = () => onNodeChange(node.id, { text: draftText });
-  const commitNote = () => onNodeChange(node.id, { note: draftNote });
-  const commitLabels = () => onNodeChange(node.id, {
-    labels: draftLabels.split(/[,，]/).map((s) => s.trim()).filter((s) => s.length > 0),
-  });
 
   const patchStyle = (patch: Partial<NonNullable<DocNode['style']>>) =>
     onNodeChange(node.id, { style: { ...style, ...patch } });
@@ -83,10 +62,8 @@ export function Inspector({ node, isRoot = false, onNodeChange, onDelete, onDrop
       <div style={{ ...row, flexDirection: 'column', alignItems: 'stretch' }}>
         <span style={{ marginBottom: 4 }}>文本</span>
         <textarea
-          key={`t:${node.id}:${node.text}`}
-          defaultValue={node.text}
-          onChange={(e) => setDraftText(e.target.value)}
-          onBlur={commitText}
+          value={node.text}
+          onChange={(e) => onNodeChange(node.id, { text: e.target.value })}
           rows={2}
           style={{ ...input, resize: 'vertical' }}
         />
@@ -248,10 +225,10 @@ export function Inspector({ node, isRoot = false, onNodeChange, onDelete, onDrop
       <div style={{ ...row, flexDirection: 'column', alignItems: 'stretch' }}>
         <span style={{ marginBottom: 4 }}>标签（逗号分隔）</span>
         <input
-          key={`l:${node.id}:${(node.labels ?? []).join(',')}`}
-          defaultValue={(node.labels ?? []).join(',')}
-          onChange={(e) => setDraftLabels(e.target.value)}
-          onBlur={commitLabels}
+          value={(node.labels ?? []).join(',')}
+          onChange={(e) => onNodeChange(node.id, {
+            labels: e.target.value.split(/[,，]/).map((s) => s.trim()).filter((s) => s.length > 0),
+          })}
           style={input}
           placeholder="如：重点,待办"
         />
@@ -260,10 +237,8 @@ export function Inspector({ node, isRoot = false, onNodeChange, onDelete, onDrop
       <div style={{ ...row, flexDirection: 'column', alignItems: 'stretch' }}>
         <span style={{ marginBottom: 4 }}>备注</span>
         <textarea
-          key={`n:${node.id}:${node.note ?? ''}`}
-          defaultValue={node.note ?? ''}
-          onChange={(e) => setDraftNote(e.target.value)}
-          onBlur={commitNote}
+          value={node.note ?? ''}
+          onChange={(e) => onNodeChange(node.id, { note: e.target.value })}
           rows={3}
           style={{ ...input, resize: 'vertical' }}
           placeholder="拖到此处编写备注…"
