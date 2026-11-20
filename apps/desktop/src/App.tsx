@@ -1,20 +1,22 @@
 // ============================================================================
-// MindFlow 桌面应用壳：工具栏 + 画布 + 大纲/检查器/主题面板。
-// 状态源 = DocumentService（契约 §6）；画布/大纲/检查器 = mindflow-ui 组件。
+// MindFlow 桌面应用：主界面 ↔ 编辑器路由（2026-11-20 主界面改造）。
+// 主界面：创建空白导图 / 导入本地文件 / 最近文档缩略图（XMind 风格，无账号区）。
+// 编辑器：DocumentService（契约 §6）+ mindflow-ui 组件。
 // ============================================================================
 
 import {
-  useRef,
   useCallback, useEffect, useState, useSyncExternalStore,
 } from 'react';
 import {
-  BUILTIN_THEMES, createDocumentService, getTheme, xmindToDoc,
+  BUILTIN_THEMES, createDocumentService, getTheme,
 } from 'mindflow-core';
 import type { DocumentService, MindDoc, NodeId, StructureType } from 'mindflow-core';
 import {
   Inspector, MindMapCanvas, OutlineView, ThemeGallery, findNode,
 } from 'mindflow-ui';
+import HomePage from './components/HomePage';
 import { createEmptyDoc } from './lib/emptyDoc';
+import { parseImportFile } from './lib/importFile';
 import { localStorageAdapter } from './lib/localStorageAdapter';
 
 const STRUCTURES: Array<{ value: StructureType; label: string }> = [
@@ -27,26 +29,104 @@ const STRUCTURES: Array<{ value: StructureType; label: string }> = [
   { value: 'tree', label: '树形图' },
 ];
 
-/** 应用根：异步加载初始文档后创建服务（加载失败/无数据 → 空文档） */
-export function App() {
-  const [service, setService] = useState<DocumentService | null>(null);
+// ---------------------------------------------------------------------------
+// 应用根：路由（主界面 / 编辑器）与文档生命周期
+// ---------------------------------------------------------------------------
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const doc = (await localStorageAdapter.load('mindflow-dev-doc')) ?? createEmptyDoc();
-      if (!cancelled) setService(createDocumentService(localStorageAdapter, doc));
-    })();
-    return () => { cancelled = true; };
+type View = { kind: 'home' } | { kind: 'editor'; service: DocumentService; docId: string };
+
+export function App() {
+  const [view, setView] = useState<View>({ kind: 'home' });
+  const [homeDocs, setHomeDocs] = useState<MindDoc[]>([]);
+
+  const refreshHome = useCallback(async () => {
+    const metas = await localStorageAdapter.list();
+    const docs = await Promise.all(metas.map((m) => localStorageAdapter.load(m.id)));
+    setHomeDocs(docs.filter((d): d is MindDoc => d !== null));
   }, []);
 
-  if (service === null) {
-    return <div className="p-6 text-sm text-gray-500">正在打开文档…</div>;
+  useEffect(() => {
+    if (view.kind === 'home') void refreshHome();
+  }, [view.kind, refreshHome]);
+
+  const openEditor = useCallback((doc: MindDoc) => {
+    setView({ kind: 'editor', service: createDocumentService(localStorageAdapter, doc), docId: doc.id });
+  }, []);
+
+  const createBlank = useCallback(async () => {
+    const doc = createEmptyDoc();
+    await localStorageAdapter.save(doc);
+    openEditor(doc);
+  }, [openEditor]);
+
+  const importAtHome = useCallback(async (file: File) => {
+    try {
+      const imported = await parseImportFile(file);
+      await localStorageAdapter.save(imported);
+      openEditor(imported);
+    } catch (err) {
+      alert(`导入失败：${err instanceof Error ? err.message : String(err)}`);
+    }
+  }, [openEditor]);
+
+  const openFromHome = useCallback((id: string) => {
+    void (async () => {
+      const doc = await localStorageAdapter.load(id);
+      if (doc !== null) openEditor(doc);
+    })();
+  }, [openEditor]);
+
+  const deleteDoc = useCallback(async (id: string) => {
+    if (!confirm('删除这张导图？此操作不可恢复。')) return;
+    await localStorageAdapter.delete(id);
+    void refreshHome();
+  }, [refreshHome]);
+
+  const exitToHome = useCallback(async (service: DocumentService) => {
+    await service.flushSave();                             // 离开前把防抖队列里的变更落盘
+    setView({ kind: 'home' });
+  }, []);
+
+  const newDocFromEditor = useCallback(async (service: DocumentService) => {
+    await service.flushSave();
+    const doc = createEmptyDoc();
+    await localStorageAdapter.save(doc);
+    openEditor(doc);
+  }, [openEditor]);
+
+  if (view.kind === 'home') {
+    return (
+      <HomePage
+        docs={homeDocs}
+        onCreateBlank={() => { void createBlank(); }}
+        onImportFile={(f) => { void importAtHome(f); }}
+        onOpen={openFromHome}
+        onDelete={(id) => { void deleteDoc(id); }}
+      />
+    );
   }
-  return <Shell service={service} />;
+
+  return (
+    <Shell
+      key={view.docId}
+      service={view.service}
+      onExitHome={() => { void exitToHome(view.service); }}
+      onNewDoc={() => { void newDocFromEditor(view.service); }}
+    />
+  );
 }
 
-function Shell({ service }: { service: DocumentService }) {
+// ---------------------------------------------------------------------------
+// 编辑器壳：工具栏 + 画布 + 大纲/检查器/主题面板
+// ---------------------------------------------------------------------------
+
+interface ShellProps {
+  service: DocumentService;
+  onExitHome: () => void;
+  onNewDoc: () => void;
+}
+
+function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
   // 文档状态：订阅 DocumentService
   const doc = useSyncExternalStore(
     useCallback((cb: () => void) => service.subscribe(() => cb()), [service]),
@@ -72,40 +152,6 @@ function Shell({ service }: { service: DocumentService }) {
     (window as Window & { __mfSendDebug?: (payload: Record<string, unknown>) => void }).__mfSendDebug?.(p);
   }, []);
 
-  // —— XMind 兼容（契约 §4 xmindToDoc）+ .mflow 文件导入导出 ——
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const importFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';                                   // 允许重复导入同名文件
-    if (!file) return;
-    try {
-      let imported: MindDoc;
-      if (file.name.toLowerCase().endsWith('.xmind')) {
-        imported = await xmindToDoc(await file.arrayBuffer());
-      } else {
-        const parsed = JSON.parse(await file.text()) as MindDoc;
-        if (parsed?.formatVersion !== 1 || typeof parsed?.root?.id !== 'string') {
-          throw new Error('不是有效的 .mflow 文档（缺少 formatVersion/root）');
-        }
-        imported = parsed;
-      }
-      service.update((d) => { Object.assign(d, imported); });
-      setSelectedId(null);
-    } catch (err) {
-      alert(`导入失败：${err instanceof Error ? err.message : String(err)}`);
-    }
-  };
-
-  const exportDoc = () => {
-    const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `MindFlow-${doc.title || '未命名'}.mflow`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
   useEffect(() => {
     (window as Window & { __mfSendDebug?: (p: Record<string, unknown>) => void }).__mfSendDebug =
       (p) => {
@@ -116,7 +162,7 @@ function Shell({ service }: { service: DocumentService }) {
         });
       };
     return () => {
-      delete (window as Window & { __mfSendDebug?: (p: Record<string, unknown>) => void }).__mfSendDebug;
+      delete (window as Window & { __mfSendDebug?: (payload: Record<string, unknown>) => void }).__mfSendDebug;
     };
   }, []);
 
@@ -145,11 +191,37 @@ function Shell({ service }: { service: DocumentService }) {
 
   const btn = 'px-3 py-1.5 text-sm rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed';
 
+  // 导入（编辑页内：替换当前文档内容）
+  const importFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const imported = await parseImportFile(file);
+      service.update((d) => { Object.assign(d, imported); });
+      setSelectedId(null);
+    } catch (err) {
+      alert(`导入失败：${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
+  const exportDoc = () => {
+    const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `MindFlow-${doc.title || '未命名'}.mflow`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex h-full flex-col bg-gray-50">
       {/* 工具栏 */}
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-gray-200 bg-white px-3">
-        <span className="mr-1 text-sm font-bold tracking-wide">MindFlow</span>
+        <button type="button" className={btn} onClick={onExitHome} title="返回主界面">‹ 主页</button>
+        <span className="mx-1 text-sm font-bold tracking-wide">MindFlow</span>
+        <span className="max-w-48 truncate text-sm text-gray-500">{doc.title || '未命名'}</span>
         <button type="button" className={btn} disabled={!service.canUndo()} onClick={() => {
           dbg({ k: 'undo-click', canUndo: service.canUndo() });
           const ok = service.undo();
@@ -169,27 +241,11 @@ function Shell({ service }: { service: DocumentService }) {
         </select>
         <button type="button" className={btn} onClick={() => setShowGallery((v) => !v)}>主题</button>
         <button type="button" className={`${btn} ${showOutline ? 'ring-1 ring-blue-400' : ''}`} onClick={() => setShowOutline((v) => !v)}>☰ 大纲</button>
-        <button type="button" className={btn} onClick={() => fileInputRef.current?.click()} title="导入 XMind（.xmind）或 MindFlow（.mflow）文件">导入</button>
+        <button type="button" className={btn} onClick={() => document.getElementById('mf-import-input')?.click()} title="导入 .xmind / .mflow 到当前文档">导入</button>
         <button type="button" className={btn} onClick={exportDoc} title="导出为 .mflow 文件">导出</button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".xmind,.mflow"
-          style={{ display: 'none' }}
-          onChange={(e) => { void importFile(e); }}
-        />
+        <input id="mf-import-input" type="file" accept=".xmind,.mflow" className="hidden" onChange={(e) => { void importFile(e); }} />
         <span className="flex-1" />
-        <button
-          type="button"
-          className={btn}
-          onClick={() => {
-            service.update((d) => { Object.assign(d, createEmptyDoc()); });
-            setSelectedId(null);
-          }}
-          title="新建并替换当前文档"
-        >
-          ＋ 新建
-        </button>
+        <button type="button" className={btn} onClick={onNewDoc} title="新建一张空白导图">＋ 新建</button>
       </header>
 
       {/* 主体 */}
