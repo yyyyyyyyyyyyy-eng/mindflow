@@ -87,12 +87,15 @@ describe('buildFlowGraph', () => {
     expect(nodes.find((n) => n.id === 'r')!.data.editing).toBe(false);
   });
 
-  it('连线：3 条，path 原样透传，颜色按子节点层级', () => {
+  it('连线：3 条，path 原样透传，颜色按子节点层级，挂绳钉点=父/子卡片顶上球心', () => {
     const { edges } = buildFlowGraph(doc, res, null, theme);
     expect(edges.length).toBe(3);
     const ra = edges.find((e) => e.id === 'e-r-a')!;
     expect(ra.data?.d).toBe('M120 20 C150 20 150 -10 180 -10');
     expect(ra.data?.color).toBe(theme.branchColorByLevel[1]);
+    // r(0,0,120,40) → 钉 {x:60, y:-3}；a(180,-30,100,40) → 钉 {x:230, y:-33}
+    expect(ra.data?.pinA).toEqual({ x: 60, y: -3 });
+    expect(ra.data?.pinB).toEqual({ x: 230, y: -33 });
     const aa1 = edges.find((e) => e.id === 'e-a-a1')!;
     expect(aa1.data?.color).toBe(theme.branchColorByLevel[2]);
   });

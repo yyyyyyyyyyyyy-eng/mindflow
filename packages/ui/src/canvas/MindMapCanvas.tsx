@@ -18,12 +18,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DEFAULT_LAYOUT_OPTIONS, defaultIdGen, layout, normalizeOptions,
 } from 'mindflow-core';
-import type { MindDoc, NodeId, TextSize, Theme } from 'mindflow-core';
+import type { DocNode, MindDoc, NodeId, TextSize, Theme } from 'mindflow-core';
 import { buildFlowGraph } from '../flowModel';
 import type { MindFlowEdge, MindFlowNode } from '../flowModel';
 import { MIND_FONT_FAMILY, createBrowserMeasureText } from '../measure';
-import { BranchEdge } from './BranchEdge';
+import { StringEdge } from './StringEdge';
 import { MindNode } from './MindNode';
+import { ContextMenu } from './ContextMenu';
 import { findNode, inSubtree } from '../treeOps';
 
 export interface MindMapCanvasProps {
@@ -63,6 +64,8 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
   // —— 选中与编辑态 ——
   const [internalSel, setInternalSel] = useState<NodeId | null>(null);
   const [editingId, setEditingId] = useState<NodeId | null>(null);
+  /** 右键菜单：屏幕坐标 + 命中节点（null = 画布空白） */
+  const [menu, setMenu] = useState<{ x: number; y: number; nodeId: NodeId | null } | null>(null);
   /** 有效选中：外部受控优先（App 侧驱动 Inspector），否则用内部状态 */
   const effectiveSel = selectedId !== undefined ? selectedId : internalSel;
 
@@ -207,12 +210,13 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
 
   // —— 键盘（编辑态由 textarea 自行消化，不冒泡到这里） ——
   const onKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (menu !== null) { e.preventDefault(); setMenu(null); return; }   // Escape/任意键先收菜单
     if (editingId !== null) return;
     if (!effectiveSel) return;
     if (e.key === 'Tab') { e.preventDefault(); addChild(effectiveSel); }
     else if (e.key === 'Enter') { e.preventDefault(); addSibling(effectiveSel); }
     else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteNode(effectiveSel); }
-  }, [addChild, addSibling, deleteNode, editingId, effectiveSel]);
+  }, [addChild, addSibling, deleteNode, editingId, effectiveSel, menu]);
 
   // —— 自定义节点/边类型 ——
   const nodeTypes = useMemo(() => {
@@ -226,7 +230,7 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
     );
     return { mind: wrapper } as unknown as NodeTypes;
   }, [addChild, commitText, toggleCollapse]);
-  const edgeTypes = useMemo(() => ({ branch: BranchEdge }) as unknown as EdgeTypes, []);
+  const edgeTypes = useMemo(() => ({ branch: StringEdge }) as unknown as EdgeTypes, []);
 
   return (
     <div
@@ -246,11 +250,20 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        onNodeClick={(_e, n) => select(n.id)}
-        onPaneClick={() => select(null)}
+        onNodeClick={(_e, n) => { select(n.id); setMenu(null); }}
+        onPaneClick={() => { select(null); setMenu(null); }}
         onNodeDoubleClick={(_e, n) => { select(n.id); setEditingId(n.id); }}
         onNodeDragStart={(_e, node) => sendDebug({ k: 'rf-dragstart', id: node.id })}
         onNodeDragStop={onNodeDragStop}
+        onNodeContextMenu={(e, n) => {
+          e.preventDefault();
+          select(n.id);
+          setMenu({ x: e.clientX, y: e.clientY, nodeId: n.id });
+        }}
+        onPaneContextMenu={(e) => {
+          e.preventDefault();
+          setMenu({ x: e.clientX, y: e.clientY, nodeId: null });
+        }}
         fitView
         fitViewOptions={{ padding: 0.25 }}
         minZoom={0.15}
@@ -258,6 +271,53 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
       >
         <Background variant={BackgroundVariant.Dots} gap={24} color="#e4e7ec" />
       </ReactFlow>
+
+      {/* 中文右键菜单（替代 WKWebView 默认英文菜单） */}
+      {menu !== null && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          node={menu.nodeId !== null ? (findNode(doc.root, menu.nodeId)?.node ?? null) : null}
+          isRoot={menu.nodeId === doc.root.id}
+          onClose={() => setMenu(null)}
+          onAddChild={() => { if (menu.nodeId !== null) addChild(menu.nodeId); setMenu(null); }}
+          onAddSibling={() => { if (menu.nodeId !== null) addSibling(menu.nodeId); setMenu(null); }}
+          onRename={() => {
+            if (menu.nodeId !== null) { select(menu.nodeId); setEditingId(menu.nodeId); }
+            setMenu(null);
+          }}
+          onToggleCollapse={() => { if (menu.nodeId !== null) toggleCollapse(menu.nodeId); setMenu(null); }}
+          onClearPos={() => {
+            const id = menu.nodeId;
+            if (id !== null) {
+              onDocChange((d) => {
+                const loc = findNode(d.root, id);
+                if (loc) loc.node.pos = undefined;
+              });
+            }
+            setMenu(null);
+          }}
+          onDelete={() => { if (menu.nodeId !== null) deleteNode(menu.nodeId); setMenu(null); }}
+          onFitView={() => { void rf.fitView({ padding: 0.25, duration: 250 }); setMenu(null); }}
+          onExpandAll={() => {
+            onDocChange((d) => {
+              const walk = (n: DocNode) => { n.collapsed = false; n.children.forEach(walk); };
+              walk(d.root);
+            });
+            setMenu(null);
+          }}
+          onCollapseAll={() => {
+            onDocChange((d) => {
+              const walk = (n: DocNode) => {
+                if (n.children.length > 0) n.collapsed = true;
+                n.children.forEach(walk);
+              };
+              walk(d.root);
+            });
+            setMenu(null);
+          }}
+        />
+      )}
     </div>
   );
 }

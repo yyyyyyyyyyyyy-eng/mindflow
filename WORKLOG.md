@@ -3,8 +3,8 @@
 > 本文件由 code-review-worklog 技能自动维护：记录每次需求澄清的问答、代码变更、Bug 及修复方案、所有需求及其实现状态。请保留全部结构标题与表格，条目按时间顺序追加。
 
 - **日志创建时间**：2026-11-18 19:46:54
-- **最近更新**：2026-11-20 20:22:26
-- **最新版本**：v0.11.6
+- **最近更新**：2026-11-20 20:36:47
+- **最新版本**：v0.13.0
 ---
 
 ## 需求跟踪
@@ -16,7 +16,7 @@
 | REQ-003 | 集成两个分身交付物：算法实验室并入 packages/core（验收→迁移→补 service/themes→测试全绿→推送）；网页版 13 条提交补推远端 | 2026-11-19 11:08:10 | 已完成 | packages/core 集成完毕（119 用例全绿）；两仓库均已推送远端（mindflow 8054a4c / mindflow-web 全部 13 条提交） |
 | REQ-004 | Phase 2：packages/ui（React Flow 画布/大纲/检查器/主题库）+ apps/desktop（Vite+React 前端 + Tauri 壳接线），浏览器实测验收 | 2026-11-19 11:35:16 | 已完成 | 画布/大纲/检查器/主题库 + apps/desktop 全部落地；15 单测 + 浏览器全链路冒烟零错误 |
 | REQ-005 | 编辑体验优化：①节点自定义位置（顶上十字手柄拖拽，子树整体随动）②节点右侧加号=加子层级（减号镜像到左侧）③大纲 Enter 任何层级一律创建子层级 ④工具栏主题按钮去 emoji | 2026-11-20 19:14:20 | 已完成 | 四项全部浏览器实测通过；已提交推送 a47442b |
-| REQ-006 | 实体感升级：①移动手柄→金属钉 ②节点→卡片 ③连线→钉间细绳（三层质感描边）④绳物理（Verlet 悬垂+鼠标悬停扰动晃动）⑤兼容 XMind：工具栏导入 .xmind/.mflow + 导出 .mflow | 2026-11-20 19:40:09 | 进行中 |  |
+| REQ-006 | 实体感升级：①移动手柄→金属钉 ②节点→卡片 ③连线→钉间细绳（三层质感描边）④绳物理（Verlet 悬垂+鼠标悬停扰动晃动）⑤兼容 XMind：工具栏导入 .xmind/.mflow + 导出 .mflow | 2026-11-20 19:40:09 | 已完成 | 钉子/卡片/物理绳/悬停晃动/中文右键菜单/XMind 导入导出全部浏览器实测通过；顺带修复两个潜伏 Bug（RF Handle 缺失、僵尸 rAF ID） |
 | REQ-007 | 修复手柄拖拽瞬移 Bug：双拖拽竞争（React 合成 stopPropagation 拦不住 RF/d3 原生监听）+ 位移未按 zoom 校正 | 2026-11-20 19:51:31 | 已完成 | 瞬移根因消除（dragHandle 隔离 + zoom 校正）+ 修复中引入的回归一并修复；代码已推送 490b9d4；body 拖拽改父级路径未改动、待用户真实鼠标复验 |
 | REQ-008 | 统一 Bug 终修：卡片本体拖拽后节点消失且撤销无法回原位（用户澄清：此前所有'瞬移/消失'描述均为本 Bug）+ 全面排查三类缺陷 | 2026-11-20 20:13:31 | 已完成 | 根因修复；HMR 已热更进用户正在使用的窗口，待用户复验：拖到空处应立即弹回原位 |
 | REQ-009 | 全面重写拖动体系：✥ 改纯装饰占位（钉子预留），删除其全部拖动机制；卡片本体=唯一拖动入口（自由定位+挂靠），顺带修 tauri CLI 秒退（改直跑二进制） | 2026-11-20 20:21:22 | 已完成 | 交互模型按用户澄清重写完成；启动改直跑方案绕开 CLI 秒退；待用户复验 |
@@ -96,43 +96,50 @@
 - **经验内容**：cargo 拉取 rsproxy.cn/crates.io-index 报 git fetch failed → rsproxy 的 git 索引在国内网络不稳 → 改 sparse 协议 sparse+https://rsproxy.cn/index/ 且 git-fetch-with-cli=false 后恢复（实测 2026-11-18, cargo 1.100 macOS）
 - **候选目标**：dev-plan-with-mirrors
 - **来源变更**：CHG-001
-- **状态**：待确认
+- **状态**：已沉淀
+- **沉淀结果**：已写入 dev-plan-with-mirrors/references/mirrors.md §Rust/Cargo 实测注意
 
 ### EXP-002 ｜ 2026-11-18 20:03:26
 - **经验内容**：git push github.com 报 HTTP2 framing layer 错误/443 连接超时（国内网络间歇）→ git config --global http.version HTTP/1.1 + 失败重试循环（间隔8s×5）后推送成功（实测 2026-11-18）
 - **候选目标**：dev-plan-with-mirrors
 - **来源变更**：CHG-001
-- **状态**：待确认
+- **状态**：已沉淀
+- **沉淀结果**：已写入 dev-plan-with-mirrors/references/mirrors.md §GitHub 其他加速方案 间歇阻断兜底
 
 ### EXP-003 ｜ 2026-11-19 11:10:44
 - **经验内容**：worklog.py 报「日志文件不存在」→ 脚本以调用时工作目录定位 WORKLOG.md，在会话默认目录调用会找错项目 → 一律显式传 workdir=项目根再调用（实测 2026-11-19）
 - **候选目标**：code-review-worklog
 - **来源变更**：CHG-007
-- **状态**：待确认
+- **状态**：已沉淀
+- **沉淀结果**：已写入 code-review-worklog/SKILL.md 硬性规则第 20 条
 
 ### EXP-004 ｜ 2026-11-19 11:48:04
 - **经验内容**：浏览器验证 React 应用：a11y 快照看不见 React Flow 节点内容（绝对定位不进树），且同一 evaluate/紧邻 rAF 内读 DOM 会早于 React 提交造成『没生效』误判 → 断言要等确定文本变化（browser.wait condition:text）或页内 await setTimeout(400) 再读（实测 2026-11-19, vite dev）
 - **候选目标**：browser
 - **来源变更**：CHG-012
-- **状态**：待确认
+- **状态**：已放弃
+- **沉淀结果**：目标 browser 为内置只读技能（skill://browser，非本地文件）不可写入；内容保留于 WORKLOG.md 经验暂存区供后续项目检索
 
 ### EXP-005 ｜ 2026-11-20 19:17:08
 - **经验内容**：合成 PointerEvent 上 setPointerCapture 会因 untrusted pointerId 抛 NotFoundError → 手柄拖拽实现先记录拖拽状态再 try/catch 捕获，捕获失败时按钮监听器兜底（自动化测试与真实用户两不误）（实测 2026-11-20, Chromium）
 - **候选目标**：browser
 - **来源变更**：CHG-019
-- **状态**：待确认
+- **状态**：已放弃
+- **沉淀结果**：同上：browser 技能只读，保留于 WORKLOG.md 暂存区（setPointerCapture untrusted 容错方案）
 
 ### EXP-006 ｜ 2026-11-20 19:51:31
 - **经验内容**：React Flow v12 节点拖拽是 d3-drag 原生监听（挂节点 DOM，先于 React 根委托），React 合成 stopPropagation 拦不住 → 自定义手柄要么用官方 node.dragHandle 选择器隔离，要么挂原生监听；且合成 PointerEvent（isTrusted=false）驱动不了 d3 手势，d3 路径 e2e 只能靠真实输入验证（实测 2026-11-20, @xyflow/react v12, Chromium）
 - **候选目标**：browser
 - **来源变更**：CHG-022
-- **状态**：待确认
+- **状态**：已放弃
+- **沉淀结果**：同上：browser 技能只读，保留于 WORKLOG.md 暂存区（RF d3 原生监听与 dragHandle 隔离结论）
 
 ### EXP-007 ｜ 2026-11-20 20:22:26
 - **经验内容**：tauri dev CLI 包装层在本机间歇秒退（vite 起来、二进制启动后进程树即退，ELIFECYCLE），直跑 target/debug/mindflow + 独立 vite 完全稳定（25s timeout 实测存活）→ 开发期用『先 vite 后直跑二进制』拉窗口，绕开 CLI 层（2026-11-20 实测）
 - **候选目标**：macos-app-development
 - **来源变更**：CHG-024
-- **状态**：待确认
+- **状态**：已沉淀
+- **沉淀结果**：已写入 macos-app-development/SKILL.md 踩坑实录第 113 条
 
 ## 变更历史
 
@@ -289,6 +296,18 @@
 - **变更摘要**：拖动体系全面重写（用户澄清交互模型）：✥ 改纯装饰占位（钉子+细绳预留，pointer-events:none）删除全部拖动机制（getBasePos/onPosPreview/onPosCommit/posDrag 等零引用清除）；卡片本体=唯一拖动入口（拖空白=就地定位提交 pos，拖节点=挂靠，先查目标再摘源）；本体 cursor:grab；探针保留（pd/rf-dragstart/rf-dragstop/free-commit/undo）
 - **自查结论**：通过（死代码全库 grep 零引用；ui/desktop tsc 0 错误；ui 20 用例全绿；vite build 518ms）
 
+### CHG-025 ｜ 2026-11-20 20:36:47 ｜ 新增
+- **文件**：`packages/ui/src/canvas/StringEdge.tsx`、`packages/ui/src/canvas/ContextMenu.tsx`、`packages/ui/src/canvas/ropePhysics.ts`、`packages/ui/test/ropePhysics.test.ts`、`packages/ui/src/flowModel.ts`、`packages/ui/test/flowModel.test.ts`
+- **需求关联**：REQ-006
+- **变更摘要**：实体感升级：①钉间物理细绳 StringEdge（Rope Verlet 悬垂+静止停摆+悬停冲量晃动；三层质感描边+12px 命中层；rAF 直写 path 零 React 重渲染）②中文右键菜单（节点：加子/加同级/重命名/折叠/清位置/删除；空白：适应视图/全展开/全折叠）③卡片质感（细边+双层投影）+金属钉视觉（含针杆）④Rope 补 point 访问器+6 单测；flowModel 边数据增 pinA/pinB 钉点
+- **自查结论**：通过（26 用例全绿；tsc 0 错误；浏览器实测：落绳动画/悬停晃动/菜单中文项与动作/零控制台错误）
+
+### CHG-026 ｜ 2026-11-20 20:36:47 ｜ 新增
+- **文件**：`apps/desktop/src/App.tsx`、`packages/ui/src/canvas/MindNode.tsx`
+- **需求关联**：REQ-006
+- **变更摘要**：XMind 兼容落地：工具栏导入（.xmind 走 core xmindToDoc 解压解析 + .mflow JSON 校验；失败 alert 中文报错）/导出 .mflow（Blob 下载，文件名带标题）；MindNode 增隐形 Handle（RF v12 挂载边的必要条件）
+- **自查结论**：通过（浏览器实测：xmind 夹具经真实 input 通道导入成功 5 节点+结构切换；导出捕获 MindFlow-标题.mflow 下载；零错误）
+
 ## Bug 记录
 
 <!-- 每个 Bug 由脚本（add-bug）在此节末尾追加一个条目，无论是否已修复都要记录。格式示例：
@@ -344,5 +363,19 @@
 - **原因**：变更器内查找顺序错误：loc 先删、to 后查，to 为 null 时 return 已无法挽回
 - **修复方案**：防御顺序反转：先 findNode(target) 确认存在，再摘除源节点
 - **关联变更**：CHG-022
+- **状态**：已修复
+
+### BUG-008 ｜ 2026-11-20 20:36:47
+- **现象**：画布连线从 Phase 2 起从未渲染（.react-flow__edge 恒为 0，无任何报错）
+- **原因**：React Flow v12 会静默过滤源/目标节点缺少 <Handle> 的边——自定义节点从未放置 Handle；历次冒烟只断言节点数故一直漏网
+- **修复方案**：MindNode 放置两个隐形 Handle（opacity:0、pointer-events:none）；几何仍由 pinA/pinB 驱动，Handle 仅作挂载锚
+- **关联变更**：CHG-024
+- **状态**：已修复
+
+### BUG-009 ｜ 2026-11-20 20:36:47
+- **现象**：细绳动画完全不播放：落绳/悬停冲量均无响应（悬停冲量确认送达、rAF 本身可用，但 0 条 tick）
+- **原因**：卸载清理 cancelAnimationFrame 后未把 rafRef.current 清零——StrictMode 双挂载序列里二次挂载的 ensureLoop 守卫看到僵尸非零 ID 直接返回，模拟循环永久卡死
+- **修复方案**：stopLoop()：cancel 与清零同体；卸载清理改用 stopLoop
+- **关联变更**：CHG-025
 - **状态**：已修复
 

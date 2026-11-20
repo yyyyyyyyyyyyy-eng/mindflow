@@ -4,10 +4,11 @@
 // ============================================================================
 
 import {
+  useRef,
   useCallback, useEffect, useState, useSyncExternalStore,
 } from 'react';
 import {
-  BUILTIN_THEMES, createDocumentService, getTheme,
+  BUILTIN_THEMES, createDocumentService, getTheme, xmindToDoc,
 } from 'mindflow-core';
 import type { DocumentService, MindDoc, NodeId, StructureType } from 'mindflow-core';
 import {
@@ -70,6 +71,41 @@ function Shell({ service }: { service: DocumentService }) {
   const dbg = useCallback((p: Record<string, unknown>) => {
     (window as Window & { __mfSendDebug?: (payload: Record<string, unknown>) => void }).__mfSendDebug?.(p);
   }, []);
+
+  // —— XMind 兼容（契约 §4 xmindToDoc）+ .mflow 文件导入导出 ——
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const importFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';                                   // 允许重复导入同名文件
+    if (!file) return;
+    try {
+      let imported: MindDoc;
+      if (file.name.toLowerCase().endsWith('.xmind')) {
+        imported = await xmindToDoc(await file.arrayBuffer());
+      } else {
+        const parsed = JSON.parse(await file.text()) as MindDoc;
+        if (parsed?.formatVersion !== 1 || typeof parsed?.root?.id !== 'string') {
+          throw new Error('不是有效的 .mflow 文档（缺少 formatVersion/root）');
+        }
+        imported = parsed;
+      }
+      service.update((d) => { Object.assign(d, imported); });
+      setSelectedId(null);
+    } catch (err) {
+      alert(`导入失败：${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
+  const exportDoc = () => {
+    const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `MindFlow-${doc.title || '未命名'}.mflow`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
   useEffect(() => {
     (window as Window & { __mfSendDebug?: (p: Record<string, unknown>) => void }).__mfSendDebug =
       (p) => {
@@ -133,6 +169,15 @@ function Shell({ service }: { service: DocumentService }) {
         </select>
         <button type="button" className={btn} onClick={() => setShowGallery((v) => !v)}>主题</button>
         <button type="button" className={`${btn} ${showOutline ? 'ring-1 ring-blue-400' : ''}`} onClick={() => setShowOutline((v) => !v)}>☰ 大纲</button>
+        <button type="button" className={btn} onClick={() => fileInputRef.current?.click()} title="导入 XMind（.xmind）或 MindFlow（.mflow）文件">导入</button>
+        <button type="button" className={btn} onClick={exportDoc} title="导出为 .mflow 文件">导出</button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xmind,.mflow"
+          style={{ display: 'none' }}
+          onChange={(e) => { void importFile(e); }}
+        />
         <span className="flex-1" />
         <button
           type="button"

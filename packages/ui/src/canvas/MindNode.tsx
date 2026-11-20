@@ -10,6 +10,7 @@
 // ============================================================================
 
 import { useEffect, useRef, useState } from 'react';
+import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import type { MindFlowNode } from '../flowModel';
 
@@ -91,12 +92,20 @@ export function MindNode({
     boxSizing: 'border-box',
     padding: data.shape === 'diamond' ? '0 18%' : undefined,
     cursor: 'grab',                                       // 本体 = 拖动入口
-    border: selected ? '2px solid rgba(79,124,247,0.9)' : undefined,
+    // 卡片质感（2026-11-20 实体感升级）：细边 + 双层投影
+    border: selected ? '2px solid rgba(79,124,247,0.9)' : '1px solid rgba(16,24,40,0.08)',
+    boxShadow: data.shape === 'underline'
+      ? undefined
+      : '0 3px 8px rgba(16,24,40,0.16), 0 1px 2px rgba(16,24,40,0.10)',
     ...shapeStyle(data.shape, data.fill),
   };
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      {/* RF v12 要求节点具备 Handle 才挂载边组——几何由 pinA/pinB 驱动，Handle 仅作挂载锚（隐形、无交互） */}
+      <Handle type="source" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
+      <Handle type="target" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
+
       <div className="mf-node-body" style={box} title={data.hasNote ? '有备注' : undefined}>
         {data.text}
         {data.hasNote && <span style={{ marginLeft: 4, fontSize: 10 }}>▤</span>}
@@ -117,6 +126,20 @@ export function MindNode({
           border: '1px solid #7c8698',
           boxShadow: '0 1px 2px rgba(16,24,40,0.35)',
           pointerEvents: 'none',                           // 装饰：不拦截任何指针事件
+        }}
+      />
+      {/* 针杆：钉入卡片顶面 */}
+      <span
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: -2,
+          transform: 'translateX(-50%)',
+          width: 2,
+          height: 8,
+          background: 'linear-gradient(#8a94a6, #5b6474)',
+          pointerEvents: 'none',
         }}
       />
 

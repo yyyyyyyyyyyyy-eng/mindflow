@@ -5,7 +5,7 @@
 export { MindMapCanvas } from './canvas/MindMapCanvas';
 export type { MindMapCanvasProps } from './canvas/MindMapCanvas';
 export { MindNode } from './canvas/MindNode';
-export { BranchEdge } from './canvas/BranchEdge';
+export { StringEdge } from './canvas/StringEdge';
 export { OutlineView } from './outline/OutlineView';
 export type { OutlineViewProps } from './outline/OutlineView';
 export { Inspector } from './inspector/Inspector';

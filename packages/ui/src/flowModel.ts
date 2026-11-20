@@ -30,10 +30,14 @@ export interface MindNodeData extends Record<string, unknown> {
 
 export type MindFlowNode = Node<MindNodeData, 'mind'>;
 
-/** 画布边数据：d 为布局产出的 SVG path，color 为该层连线色 */
+/** 画布边数据：d 为布局产出的 SVG path（兜底几何）；pinA/pinB 为挂绳钉点（主渲染几何源） */
 export interface MindBranchData extends Record<string, unknown> {
   d: string;
   color: string;
+  /** 父节点顶上小钉中心（卡片顶面装饰钉，绳的挂点） */
+  pinA: { x: number; y: number };
+  /** 子节点顶上小钉中心 */
+  pinB: { x: number; y: number };
 }
 
 export type MindFlowEdge = Edge<MindBranchData>;
@@ -172,6 +176,14 @@ export function applyPosOffsets(doc: MindDoc, res: LayoutResult): LayoutResult {
 }
 
 /**
+ * 小钉挂点：卡片顶面装饰钉的球心（MindNode 的钉 span：top:-9 高 12 → 球心在顶面上方 3px）。
+ * 细绳从父/子钉球心之间悬挂（契约内 UI 细节，2026-11-20 实体感升级）。
+ */
+export function pinOf(rect: Rect): { x: number; y: number } {
+  return { x: rect.x + rect.width / 2, y: rect.y - 3 };
+}
+
+/**
  * 构建画布图：文档 + 布局结果 + 主题 → React Flow nodes/edges。
  * @param doc       当前文档
  * @param res       layout() 产出
@@ -242,6 +254,8 @@ export function buildFlowGraph(
       data: {
         d: b.d,
         color: colorByLevel(theme.branchColorByLevel, target?.level ?? 1),
+        pinA: pinOf(geo.nodeRects.get(b.fromId) ?? { x: 0, y: 0, width: 0, height: 0 }),
+        pinB: pinOf(geo.nodeRects.get(b.toId) ?? { x: 0, y: 0, width: 0, height: 0 }),
       },
     };
   });

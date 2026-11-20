@@ -60,11 +60,14 @@ export class Rope {
     this.restLen = Math.max(1, dist / segs);
 
     // 初始形态：直线上叠加正弦悬垂（近似悬链线），落绳动画即由此自然稳定
+    // 注意：悬垂只加在中段质点上——sin(π) 在 IEEE 下非严格为 0，加在端点上会漂移钉点
     const len = dist;
     for (let i = 0; i <= segs; i++) {
       const t = i / segs;
       const base = lerp(a, b, t);
-      const sagY = Math.sin(Math.PI * t) * sag * len;
+      const sagY = (i === 0 || i === segs)
+        ? 0
+        : Math.sin(Math.PI * t) * sag * len;
       const p: Particle = {
         x: base.x, y: base.y + sagY,
         px: base.x, py: base.y + sagY,
@@ -138,6 +141,17 @@ export class Rope {
       max = Math.max(max, Math.hypot(p.x - p.px, p.y - p.py));
     }
     return max;
+  }
+
+  /** 只读访问质点坐标（测试/渲染用） */
+  point(i: number): Vec {
+    const p = this.pts[i];
+    if (!p) throw new Error(`Rope.point(${i}) 越界：共 ${this.pts.length} 点`);
+    return { x: p.x, y: p.y };
+  }
+
+  get pointCount(): number {
+    return this.pts.length;
   }
 
   /** 静止判定：动能低于阈值（外部循环据此停摆省开销） */
