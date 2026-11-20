@@ -28,15 +28,11 @@ export default function HomePage({ docs, onCreateBlank, onImportFile, onOpen, on
       {/* 品牌区（无账号） */}
       <header className="flex h-14 shrink-0 items-center border-b border-gray-200 bg-white px-6">
         <span className="text-base font-bold tracking-wide text-gray-900">MindFlow</span>
-        <span className="ml-auto text-xs text-gray-400">{docs.length > 0 ? `${docs.length} 个导图` : ''}</span>
       </header>
 
       <main className="mx-auto w-full max-w-5xl flex-1 overflow-y-auto px-6 py-10">
-        <h1 className="text-2xl font-bold text-gray-900">从一张思维导图开始</h1>
-        <p className="mt-2 text-sm text-gray-500">卡片、钉子与细绳——把想法钉在软木板上。</p>
-
         {/* 创建 / 导入 */}
-        <div className="mt-7 flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={onCreateBlank}
@@ -49,7 +45,7 @@ export default function HomePage({ docs, onCreateBlank, onImportFile, onOpen, on
             onClick={() => fileRef.current?.click()}
             className="rounded-xl border border-gray-300 bg-white px-6 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
           >
-            导入本地文件（.xmind / .mflow）
+            导入本地文件
           </button>
           <input
             ref={fileRef}
@@ -68,7 +64,7 @@ export default function HomePage({ docs, onCreateBlank, onImportFile, onOpen, on
         <h2 className="mt-12 text-sm font-semibold text-gray-700">最近文档</h2>
         {docs.length === 0 ? (
           <p className="mt-4 rounded-xl border border-dashed border-gray-300 bg-white/60 px-6 py-12 text-center text-sm text-gray-400">
-            还没有导图——点击上方「创建空白导图」开始第一张。
+            暂无导图
           </p>
         ) : (
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
