@@ -21,6 +21,7 @@ export interface MindNodeData extends Record<string, unknown> {
   childCount: number;        // 全部孩子数（含折叠隐藏的）
   hasNote: boolean;
   hasImage: boolean;         // 节点图片
+  imageSrc: string;          // 图片 data URI（空字符串=无图）
   shape: 'rounded-rect' | 'rect' | 'ellipse' | 'underline' | 'diamond';
   fill: string;
   textColor: string;
@@ -257,6 +258,7 @@ export function buildFlowGraph(
       childCount: node.children.length,
       hasNote: typeof node.note === 'string' && node.note.length > 0,
       hasImage: typeof node.image === 'string' && node.image.length > 0,
+      imageSrc: node.image ?? '',
       shape,
       fill,
       textColor,

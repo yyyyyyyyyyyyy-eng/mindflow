@@ -82,7 +82,7 @@ export default function HomePage({ docs, onCreateBlank, onImportFile, onOpen, on
                     type="button"
                     className="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] text-gray-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
                     onClick={(e) => { e.stopPropagation(); onDelete(d.id); }}
-                    title="删除"
+                    title="删除（再次点击确认）"
                   >
                     删除
                   </button>

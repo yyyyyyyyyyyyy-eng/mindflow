@@ -120,8 +120,17 @@ export function MindNode({
       <Handle type="target" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
 
       <div className="mf-node-body" style={box} title={data.hasNote ? '有备注' : undefined}>
+        {data.imageSrc && (
+          <img
+            src={data.imageSrc}
+            alt=""
+            style={{
+              height: 28, maxWidth: 48, objectFit: 'cover',
+              borderRadius: 4, marginRight: 6, pointerEvents: 'none',
+            }}
+          />
+        )}
         {data.text}
-        {data.hasImage && <span style={{ marginLeft: 4, fontSize: 10 }}>🖼</span>}
         {data.hasNote && <span style={{ marginLeft: 2, fontSize: 10 }}>▤</span>}
       </div>
 

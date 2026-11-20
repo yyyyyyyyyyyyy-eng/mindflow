@@ -3,8 +3,8 @@
 > 本文件由 code-review-worklog 技能自动维护：记录每次需求澄清的问答、代码变更、Bug 及修复方案、所有需求及其实现状态。请保留全部结构标题与表格，条目按时间顺序追加。
 
 - **日志创建时间**：2026-11-18 19:46:54
-- **最近更新**：2026-11-20 21:28:37
-- **最新版本**：v0.17.0
+- **最近更新**：2026-11-20 21:33:38
+- **最新版本**：v0.18.0
 ---
 
 ## 需求跟踪
@@ -28,6 +28,7 @@
 | REQ-015 | 绳锚点按父子几何自适应：子在父下方→父底边中心↔子顶钉（时间轴下方子栈/组织架构/树形）；子上方→父钉↔子底边中心；侧向→钉对钉。修「横向时间轴绳穿卡片」 | 2026-11-20 21:18:19 | 已完成 | 浏览器实测确认主轴直线化；用户报告的横向时间轴绳穿卡已修 |
 | REQ-016 | Phase 5 补完：PNG 导出（布局引擎→SVG→canvas→PNG blob）+ Markdown/OPML 导出与导入（接线 core 已有函数）+ 导出改下拉菜单 | 2026-11-20 21:23:38 | 已完成 | PNG/.md/.opml 三种导出实测通过 |
 | REQ-017 | ①极端稳定性：500+ 节点/超长文本布局渲染与交互 ②节点图片：拖拽/粘贴/Inspector 上传，MindNode 内联渲染 ③大文档性能优化（onlyRenderVisibleElements） | 2026-11-20 21:26:53 | 已完成 | 401 节点极限实测全绿；图片拖拽/上传/内联就位 |
+| REQ-018 | ①修主页删除无反应 ②MindNode 内联渲染图片（非仅指示器）③全面文件管理（Tauri 原生文件系统 + iCloud 默认目录 + 保存/打开/自动保存） | 2026-11-20 21:31:32 | 已完成 | 删除/图片内联/文件系统全部落地；Tauri APP 文件存储模式待用户实测 |
 
 <!--
   状态取值：待实现 / 进行中 / 已完成 / 已取消
@@ -394,6 +395,12 @@
 - **变更摘要**：①节点图片：DocNode 增 image 字段（data URI ≤500KB），MindNode 拖拽/Inspector 上传/内联 🖼 指示 ②大文档优化：onlyRenderVisibleElements（>100 节点）③极端稳定性：401 节点+超长文本全链路（折叠/撤销/全展/选中/Inspector）实测全通过零错误
 - **自查结论**：通过（401 节点：折叠 603ms、展开 1204ms、零控制台错误；tsc 双包 0 错误；119 core 用例回归）
 
+### CHG-037 ｜ 2026-11-20 21:33:38 ｜ 新增
+- **文件**：`apps/desktop/src/lib/tauriFsAdapter.ts`、`apps/desktop/src/App.tsx`、`apps/desktop/src/components/HomePage.tsx`、`packages/ui/src/{flowModel.ts`、`canvas/MindNode.tsx`、`canvas/MindMapCanvas.tsx`、`inspector/Inspector.tsx}`、`CONTRACT.md`、`packages/core/src/types.ts`、`src-tauri/{Cargo.toml`、`src/main.rs}`
+- **需求关联**：REQ-018
+- **变更摘要**：①修删除（confirm WKWebView 静默失效→移除）②MindNode 内联渲染图片（img src=data URI 28px 缩略图）③TauriFsAdapter：文件系统存储（iCloud Drive/MindFlow/ 默认目录，Windows/Linux 降级 ~/Documents），tauri-plugin-fs+dialog 接入 ④localStorage 降级保留（纯浏览器环境）
+- **自查结论**：通过（tsc 0 错误；cargo check 11.6s；浏览器实测：删除 ✓、localStorage 降级 ✓；Tauri 文件系统模式待 APP 实测）
+
 ## Bug 记录
 
 <!-- 每个 Bug 由脚本（add-bug）在此节末尾追加一个条目，无论是否已修复都要记录。格式示例：
@@ -470,5 +477,12 @@
 - **原因**：readAll 副作用（删旧键）与持久化脱节
 - **修复方案**：迁移即落盘：消费旧键的同一 readAll 调用内 writeAll(docs)
 - **关联变更**：CHG-030
+- **状态**：已修复
+
+### BUG-011 ｜ 2026-11-20 21:33:38
+- **现象**：主页删除按钮无反应
+- **原因**：confirm() 在 Tauri WKWebView 中静默返回 false（不弹原生对话框）
+- **修复方案**：移除 confirm()，直接删除（悬停出现按钮+点击即删）
+- **关联变更**：CHG-036
 - **状态**：已修复
 

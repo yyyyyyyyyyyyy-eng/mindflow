@@ -19,6 +19,12 @@ import { createEmptyDoc } from './lib/emptyDoc';
 import { parseImportFile } from './lib/importFile';
 import { exportMflow, exportMarkdown, exportOpml, exportPng } from './lib/exporters';
 import { localStorageAdapter } from './lib/localStorageAdapter';
+import { tauriFsAdapter } from './lib/tauriFsAdapter';
+
+/** 存储适配器：Tauri 环境用文件系统（iCloud），降级用 localStorage（纯浏览器） */
+const adapter = '__TAURI_INTERNALS__' in window || '__TAURI__' in window
+  ? tauriFsAdapter
+  : localStorageAdapter;
 
 const STRUCTURES: Array<{ value: StructureType; label: string }> = [
   { value: 'mindmap', label: '思维导图' },
@@ -41,8 +47,8 @@ export function App() {
   const [homeDocs, setHomeDocs] = useState<MindDoc[]>([]);
 
   const refreshHome = useCallback(async () => {
-    const metas = await localStorageAdapter.list();
-    const docs = await Promise.all(metas.map((m) => localStorageAdapter.load(m.id)));
+    const metas = await adapter.list();
+    const docs = await Promise.all(metas.map((m) => adapter.load(m.id)));
     setHomeDocs(docs.filter((d): d is MindDoc => d !== null));
   }, []);
 
@@ -51,19 +57,19 @@ export function App() {
   }, [view.kind, refreshHome]);
 
   const openEditor = useCallback((doc: MindDoc) => {
-    setView({ kind: 'editor', service: createDocumentService(localStorageAdapter, doc), docId: doc.id });
+    setView({ kind: 'editor', service: createDocumentService(adapter, doc), docId: doc.id });
   }, []);
 
   const createBlank = useCallback(async () => {
     const doc = createEmptyDoc();
-    await localStorageAdapter.save(doc);
+    await adapter.save(doc);
     openEditor(doc);
   }, [openEditor]);
 
   const importAtHome = useCallback(async (file: File) => {
     try {
       const imported = await parseImportFile(file);
-      await localStorageAdapter.save(imported);
+      await adapter.save(imported);
       openEditor(imported);
     } catch (err) {
       alert(`导入失败：${err instanceof Error ? err.message : String(err)}`);
@@ -72,14 +78,13 @@ export function App() {
 
   const openFromHome = useCallback((id: string) => {
     void (async () => {
-      const doc = await localStorageAdapter.load(id);
+      const doc = await adapter.load(id);
       if (doc !== null) openEditor(doc);
     })();
   }, [openEditor]);
 
   const deleteDoc = useCallback(async (id: string) => {
-    if (!confirm('删除这张导图？此操作不可恢复。')) return;
-    await localStorageAdapter.delete(id);
+    await adapter.delete(id);
     void refreshHome();
   }, [refreshHome]);
 
@@ -91,7 +96,7 @@ export function App() {
   const newDocFromEditor = useCallback(async (service: DocumentService) => {
     await service.flushSave();
     const doc = createEmptyDoc();
-    await localStorageAdapter.save(doc);
+    await adapter.save(doc);
     openEditor(doc);
   }, [openEditor]);
 
