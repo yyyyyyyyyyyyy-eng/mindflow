@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { getTheme } from 'mindflow-core';
 import type { LayoutResult, MindDoc } from 'mindflow-core';
-import { applyPosOffsets, buildFlowGraph, colorByLevel, indexTree } from '../src/flowModel';
+import { applyPosOffsets, anchorFor, buildFlowGraph, colorByLevel, indexTree } from '../src/flowModel';
 
 function makeDoc(): MindDoc {
   return {
@@ -109,6 +109,42 @@ describe('buildFlowGraph', () => {
     const idx = indexTree(doc.root);
     expect(idx.size).toBe(5);                       // 含 b1
     expect(idx.get('b1')!.level).toBe(2);
+  });
+});
+
+describe('anchorFor（挂绳锚点按父子几何自适应，2026-11-20）', () => {
+  it('子在父下方：父底边中点 ↔ 子顶钉（组织架构/时间轴下栈）', () => {
+    const { a, b } = anchorFor(
+      { x: 0, y: 0, width: 120, height: 40 },
+      { x: 60, y: 100, width: 80, height: 36 },
+    );
+    expect(a).toEqual({ x: 60, y: 40 });          // 父底边中点
+    expect(b).toEqual({ x: 100, y: 97 });          // 子顶钉 (60+40, 100-3)
+  });
+
+  it('子在父上方：父顶钉 ↔ 子底边中点（时间轴上栈）', () => {
+    const { a, b } = anchorFor(
+      { x: 0, y: 100, width: 120, height: 40 },
+      { x: 60, y: 0, width: 80, height: 36 },
+    );
+    expect(a).toEqual({ x: 60, y: 97 });          // 父顶钉 (0+60, 100-3)
+    expect(b).toEqual({ x: 100, y: 36 });         // 子底边中点
+  });
+
+  it('侧向：钉对钉（思维导图/逻辑图）', () => {
+    const { a, b } = anchorFor(
+      { x: 0, y: 0, width: 120, height: 40 },
+      { x: 180, y: -30, width: 100, height: 40 },
+    );
+    expect(a).toEqual({ x: 60, y: -3 });
+    expect(b).toEqual({ x: 230, y: -33 });
+  });
+
+  it('边数据携带锚点：侧向结构下 anchor 与顶钉一致', () => {
+    const { edges } = buildFlowGraph(makeDoc(), makeLayout(), null, getTheme('classic'));
+    const ra = edges.find((e) => e.id === 'e-r-a')!;
+    expect(ra.data?.anchorA).toEqual(ra.data?.pinA);
+    expect(ra.data?.anchorB).toEqual(ra.data?.pinB);
   });
 });
 

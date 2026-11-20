@@ -30,14 +30,21 @@ export interface MindNodeData extends Record<string, unknown> {
 
 export type MindFlowNode = Node<MindNodeData, 'mind'>;
 
-/** 画布边数据：d 为布局产出的 SVG path（兜底几何）；pinA/pinB 为挂绳钉点（主渲染几何源） */
+/** 画布边数据：d 为布局产出的 SVG path（兜底几何）；pinA/pinB 为顶钉（静态参考 + live 增量基准）；
+ *  anchorA/anchorB 为按父子几何选择的实际挂绳锚点（底边/顶边/钉）；axis=true 为主轴/主脊（张紧直线渲染） */
 export interface MindBranchData extends Record<string, unknown> {
   d: string;
   color: string;
-  /** 父节点顶上小钉中心（卡片顶面装饰钉，绳的挂点） */
+  /** 父节点顶上小钉中心（live 跟随的位移基准） */
   pinA: { x: number; y: number };
   /** 子节点顶上小钉中心 */
   pinB: { x: number; y: number };
+  /** 实际挂绳锚点：父侧（底边中点 / 顶钉 / 主轴直线端点） */
+  anchorA: { x: number; y: number };
+  /** 实际挂绳锚点：子侧（顶钉 / 底边中点 / 主轴直线端点） */
+  anchorB: { x: number; y: number };
+  /** 主轴/主脊（timeline 主轴、鱼骨主脊）：张紧直线，不做悬垂物理 */
+  axis?: boolean;
 }
 
 export type MindFlowEdge = Edge<MindBranchData>;
@@ -183,6 +190,31 @@ export function pinOf(rect: Rect): { x: number; y: number } {
 }
 
 /**
+ * 按父子相对几何选择挂绳锚点（2026-11-20 修「绳穿卡片」）：
+ * - 子在父正下方（组织架构/树形/时间轴下侧小栈）：父卡片底边中点 ↔ 子顶钉；
+ * - 子在父正上方（时间轴上侧小栈）：父顶钉 ↔ 子卡片底边中点；
+ * - 同层/侧向（思维导图/逻辑图/鱼骨）：钉对钉。
+ */
+export function anchorFor(parent: Rect, child: Rect): { a: { x: number; y: number }; b: { x: number; y: number } } {
+  // 子顶边已在父底边之下（留 1px 容差） → 下方连接
+  if (child.y >= parent.y + parent.height - 1) {
+    return {
+      a: { x: parent.x + parent.width / 2, y: parent.y + parent.height },
+      b: pinOf(child),
+    };
+  }
+  // 子底边已在父顶边之上 → 上方连接
+  if (child.y + child.height <= parent.y + 1) {
+    return {
+      a: pinOf(parent),
+      b: { x: child.x + child.width / 2, y: child.y + child.height },
+    };
+  }
+  // 侧向：钉对钉
+  return { a: pinOf(parent), b: pinOf(child) };
+}
+
+/**
  * 构建画布图：文档 + 布局结果 + 主题 → React Flow nodes/edges。
  * @param doc       当前文档
  * @param res       layout() 产出
@@ -245,6 +277,23 @@ export function buildFlowGraph(
 
   const edges: MindFlowEdge[] = geo.branches.map((b) => {
     const target = index.get(b.toId);
+    const pr = geo.nodeRects.get(b.fromId);
+    const cr = geo.nodeRects.get(b.toId);
+    const anchors = pr && cr ? anchorFor(pr, cr) : null;
+    // 主轴/主脊识别（timeline 主轴、鱼骨主脊 = 根 → 末位一级子）：张紧直线，
+    // 悬垂绳会垂穿中间所有轴卡——锚点直接取引擎直线段两端。
+    const axisStructure = doc.structure === 'timeline-h' || doc.structure === 'timeline-v' || doc.structure === 'fishbone';
+    const lastChild = doc.root.children.length > 0 ? doc.root.children[doc.root.children.length - 1]!.id : null;
+    const isAxis = axisStructure && b.fromId === doc.root.id && b.toId === lastChild;
+    let anchorA = anchors?.a ?? pinOf(pr ?? { x: 0, y: 0, width: 0, height: 0 });
+    let anchorB = anchors?.b ?? pinOf(cr ?? { x: 0, y: 0, width: 0, height: 0 });
+    if (isAxis) {
+      const m = /^M ([-\d.]+) ([-\d.]+) L ([-\d.]+) ([-\d.]+)$/.exec(b.d);
+      if (m) {
+        anchorA = { x: Number(m[1]), y: Number(m[2]) };
+        anchorB = { x: Number(m[3]), y: Number(m[4]) };
+      }
+    }
     return {
       id: `e-${b.fromId}-${b.toId}`,
       source: b.fromId,
@@ -253,8 +302,11 @@ export function buildFlowGraph(
       data: {
         d: b.d,
         color: colorByLevel(theme.branchColorByLevel, target?.level ?? 1),
-        pinA: pinOf(geo.nodeRects.get(b.fromId) ?? { x: 0, y: 0, width: 0, height: 0 }),
-        pinB: pinOf(geo.nodeRects.get(b.toId) ?? { x: 0, y: 0, width: 0, height: 0 }),
+        pinA: pinOf(pr ?? { x: 0, y: 0, width: 0, height: 0 }),
+        pinB: pinOf(cr ?? { x: 0, y: 0, width: 0, height: 0 }),
+        anchorA,
+        anchorB,
+        ...(isAxis ? { axis: true } : {}),
       },
     };
   });

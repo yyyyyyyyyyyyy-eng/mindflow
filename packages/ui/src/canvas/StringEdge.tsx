@@ -30,9 +30,7 @@ export function StringEdge({ id, data, sourceX, sourceY, targetX, targetY }: Edg
 
   const writeAll = (d: string) => {
     for (const p of pathsRef.current) p?.setAttribute('d', d);
-  };
-
-  /** 停止循环：取消挂起的 rAF 并清零引用（防僵尸 ID 卡死后续 ensureLoop——StrictMode 双挂载下必现） */
+  };  /** 停止循环：取消挂起的 rAF 并清零引用（防僵尸 ID 卡死后续 ensureLoop——StrictMode 双挂载下必现） */
   const stopLoop = () => {
     if (rafRef.current !== 0) {
       cancelAnimationFrame(rafRef.current);
@@ -57,17 +55,26 @@ export function StringEdge({ id, data, sourceX, sourceY, targetX, targetY }: Edg
     rafRef.current = requestAnimationFrame(tick);
   };
 
-  // 实时钉点（2026-11-20 拖动跟随升级）：
-  // 优先用 RF 逐帧提供的 handle 坐标（拖动时随节点实时移动 → 绳被甩起再落回）；
-  // handle 坐标缺失时回退 data.pinA/pinB（flowModel 计算的钉球心，y-3 与 handle 顶边对齐）。
-  const aX = typeof sourceX === 'number' ? sourceX : data?.pinA?.x;
-  const aY = typeof sourceY === 'number' ? sourceY - 3 : data?.pinA?.y;
-  const bX = typeof targetX === 'number' ? targetX : data?.pinB?.x;
-  const bY = typeof targetY === 'number' ? targetY - 3 : data?.pinB?.y;
+  // 实时锚点（2026-11-20 几何自适应）：
+  // live = 静态锚点 anchorA/B + 手柄位移增量（手柄现值 − 静态顶钉）——
+  // 拖动时任意锚（父底边/子底边/钉）都逐帧跟随；静止时增量归零、锚点即布局值。
+  const dAX = typeof sourceX === 'number' && typeof data?.pinA?.x === 'number' ? sourceX - data.pinA.x : 0;
+  const dAY = typeof sourceY === 'number' && typeof data?.pinA?.y === 'number' ? sourceY - data.pinA.y : 0;
+  const dBX = typeof targetX === 'number' && typeof data?.pinB?.x === 'number' ? targetX - data.pinB.x : 0;
+  const dBY = typeof targetY === 'number' && typeof data?.pinB?.y === 'number' ? targetY - data.pinB.y : 0;
+  const aX = data?.anchorA !== undefined ? data.anchorA.x + dAX : sourceX;
+  const aY = data?.anchorA !== undefined ? data.anchorA.y + dAY : (typeof sourceY === 'number' ? sourceY - 3 : undefined);
+  const bX = data?.anchorB !== undefined ? data.anchorB.x + dBX : targetX;
+  const bY = data?.anchorB !== undefined ? data.anchorB.y + dBY : (typeof targetY === 'number' ? targetY - 3 : undefined);
 
-  // 钉点变更（拖动/重布局）：更新锚点并踢醒模拟；<0.5px 的亚像素抖动走死区（不扰绳）
+  // 钉点变更（拖动/重布局）：更新锚点并踢醒模拟；<0.5px 的亚像素抖动走死区（不扰绳）。
+  // 主轴/主脊（data.axis）：张紧直线——锚点即两端点，不做悬垂物理，拖动时直线跟随。
   useEffect(() => {
     if (aX === undefined || aY === undefined || bX === undefined || bY === undefined) return;
+    if (data?.axis === true) {
+      writeAll(`M ${aX} ${aY} L ${bX} ${bY}`);
+      return;
+    }
     const prev = lastPins.current;
     if (prev !== null
       && Math.abs(prev.ax - aX) < 0.5 && Math.abs(prev.ay - aY) < 0.5
@@ -134,6 +141,18 @@ export function StringEdge({ id, data, sourceX, sourceY, targetX, targetY }: Edg
     return typeof fallbackD === 'string'
       ? <BaseEdge id={id} path={fallbackD} style={{ stroke: color, strokeWidth: 2, fill: 'none' }} />
       : null;
+  }
+
+  // 主轴/主脊：张紧直线（拖动时端点跟随，锚点即引擎直线段两端）
+  if (data?.axis === true) {
+    const axisD = `M ${aX} ${aY} L ${bX} ${bY}`;
+    return (
+      <g>
+        <path d={axisD} fill="none" stroke="rgba(16,24,40,0.20)" strokeWidth={3.5} strokeLinecap="round" style={{ pointerEvents: 'none' }} />
+        <path d={axisD} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" style={{ pointerEvents: 'none' }} />
+        <path d={axisD} fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth={0.9} strokeDasharray="2 3" strokeLinecap="round" style={{ pointerEvents: 'none' }} />
+      </g>
+    );
   }
 
   const initialD = typeof fallbackD === 'string' ? fallbackD : '';
