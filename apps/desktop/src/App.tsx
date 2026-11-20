@@ -17,7 +17,7 @@ import {
 import HomePage from './components/HomePage';
 import { createEmptyDoc } from './lib/emptyDoc';
 import { parseImportFile } from './lib/importFile';
-import { filesToAttachments } from './lib/attachments';
+import { filesToAttachments, openFileDialogForAttachments } from './lib/attachments';
 // 注意：编辑器工具栏的「导入」已移除（用户口径：文件拖入 + 回形针替代）；主页导入保留
 import { exportMflow, exportMarkdown, exportOpml, exportPng } from './lib/exporters';
 import { localStorageAdapter } from './lib/localStorageAdapter';
@@ -283,6 +283,17 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
             onSelectedChange={setSelectedId}
             onDropFiles={(id, files) => {
               void (async () => {
+                const newAtts = await filesToAttachments(files);
+                onDocChange((d) => {
+                  const l = findNode(d.root, id);
+                  if (l) l.node.attachments = [...(l.node.attachments ?? []), ...newAtts];
+                });
+              })();
+            }}
+            onOpenFileDialog={(id) => {
+              void (async () => {
+                const files = await openFileDialogForAttachments();
+                if (files.length === 0) return;
                 const newAtts = await filesToAttachments(files);
                 onDocChange((d) => {
                   const l = findNode(d.root, id);

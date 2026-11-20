@@ -51,29 +51,36 @@ const roundBtn = (offsetSide: 'left' | 'right'): React.CSSProperties => ({
 });
 
 export interface MindNodeProps extends NodeProps<MindFlowNode> {
-  onCommitText: (id: string, text: string) => void;      // 行内编辑提交
+  onCommitText: (id: string, text: string) => void;      // 行内编辑提交（含退出编辑态）
+  onLiveUpdateText: (id: string, text: string) => void;  // 行内编辑实时同步（不退出编辑态，大纲跟随）
   onToggleCollapse: (id: string) => void;                // 折叠/展开（左侧 −/+）
   onAddChild: (id: string) => void;                      // 右侧 +：添加子层级
-  onDropFiles: (id: string, files: File[]) => void;      // 拖拽/回形针导入文件
+  onDropFiles: (id: string, files: File[]) => void;      // 拖拽文件到节点
+  onOpenFileDialog: (id: string) => void;                // 回形针：App 层处理（Tauri dialog / browser input）
 }
 
 export function MindNode({
-  id, data, selected, onCommitText, onToggleCollapse, onAddChild, onDropFiles,
+  id, data, selected,
+  onCommitText, onLiveUpdateText, onToggleCollapse, onAddChild, onDropFiles, onOpenFileDialog,
 }: MindNodeProps) {
   const [draft, setDraft] = useState<string | null>(null);  // null=非编辑态
   const taRef = useRef<HTMLTextAreaElement>(null);
 
-  // 进入编辑态时聚焦并初始化草稿
+  // 进入/退出编辑态时初始化草稿（只在 editing 切换时跑——text 变化不触发 select，
+  // 否则 liveUpdateText 回写后 select() 会全选文字，下一个按键覆盖整段）
   useEffect(() => {
     if (data.editing) {
       setDraft(data.text);
       requestAnimationFrame(() => taRef.current?.select());
+    } else {
+      setDraft(null);
     }
-  }, [data.editing, data.text]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.editing]);
 
   const commit = () => {
     if (draft !== null && draft !== data.text) onCommitText(id, draft);
-    setDraft(null);
+    else setDraft(null);
   };
 
   const box: React.CSSProperties = {
@@ -101,10 +108,7 @@ export function MindNode({
     ...shapeStyle(data.shape, data.fill),
   };
 
-  // 回形针：文件选择器
-  const clipRef = useRef<HTMLInputElement>(null);
-
-  /** 处理拖入或选择的文件（多文件/多类型） */
+  // 处理拖入文件（多文件/多类型）
   const handleFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
     onDropFiles(id, Array.from(files));
@@ -120,13 +124,6 @@ export function MindNode({
         handleFiles(e.dataTransfer?.files ?? null);
       }}
     >
-      <input
-        ref={clipRef}
-        type="file"
-        multiple
-        style={{ display: 'none' }}
-        onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }}
-      />
       {/* RF v12 要求节点具备 Handle 才挂载边组——几何由 pinA/pinB 驱动，Handle 仅作挂载锚（隐形、无交互） */}
       <Handle type="source" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
       <Handle type="target" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
@@ -206,7 +203,7 @@ export function MindNode({
       {/* 底部：回形针 = 导入文件（多文件/多类型） */}
       <button
         type="button"
-        onClick={(e) => { e.stopPropagation(); clipRef.current?.click(); }}
+        onClick={(e) => { e.stopPropagation(); onOpenFileDialog(id); }}
         style={{
           position: 'absolute',
           left: '50%',
@@ -231,12 +228,15 @@ export function MindNode({
         📎{data.imageCount + data.fileCount > 0 ? `${data.imageCount + data.fileCount}` : ''}
       </button>
 
-      {/* 行内编辑覆盖层：按键不冒泡到画布 */}
+      {/* 行内编辑覆盖层：onChange 实时同步大纲；Enter/失焦提交并关闭 */}
       {draft !== null && (
         <textarea
           ref={taRef}
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            onLiveUpdateText(id, e.target.value);          // 实时同步 → 文档更新 → 大纲跟随
+          }}
           onBlur={commit}
           onKeyDown={(e) => {
             e.stopPropagation();

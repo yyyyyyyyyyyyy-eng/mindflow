@@ -39,6 +39,8 @@ export interface MindMapCanvasProps {
   onSelectedChange?: (id: NodeId | null) => void;
   /** 节点文件拖入（多文件/多类型） */
   onDropFiles?: (id: NodeId, files: File[]) => void;
+  /** 回形针：打开文件对话框（App 层处理 Tauri dialog / browser input） */
+  onOpenFileDialog?: (id: NodeId) => void;
 }
 
 /** 调试探针（dev-only）：App 侧注入 window.__mfSendDebug，未注入时零开销 */
@@ -48,7 +50,7 @@ function sendDebug(p: Record<string, unknown>): void {
   w.__mfSendDebug?.(p);
 }
 
-function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelectedChange, onDropFiles }: MindMapCanvasProps) {
+function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelectedChange, onDropFiles, onOpenFileDialog }: MindMapCanvasProps) {
   // —— 测量与布局（文档投影的唯一几何来源） ——
   const measure = useMemo(
     () => measureText ?? createBrowserMeasureText(MIND_FONT_FAMILY),
@@ -164,6 +166,15 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
     setEditingId(null);
   }, [onDocChange]);
 
+  /** 行内编辑实时同步（不退出编辑态）——画布打字 → 文档更新 → 大纲跟随 */
+  const liveUpdateText = useCallback((id: NodeId, text: string) => {
+    onDocChange((d) => {
+      const loc = findNode(d.root, id);
+      if (loc) loc.node.text = text;
+    });
+    // 不 setEditingId(null)：保持编辑态
+  }, [onDocChange]);
+
   // —— 卡片本体拖放（2026-11-20 全面重写：本体 = 唯一拖动入口）——
   // 复位用（防御路径）：setNodes(同一数组引用) 会被 React 以 Object.is 相等 bail-out
   // 跳过渲染，必须重建引用。
@@ -226,13 +237,15 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
       <MindNode
         {...p}
         onCommitText={commitText}
+        onLiveUpdateText={liveUpdateText}
         onToggleCollapse={toggleCollapse}
         onAddChild={addChild}
         onDropFiles={onDropFiles ?? (() => {})}
+        onOpenFileDialog={onOpenFileDialog ?? (() => {})}
       />
     );
     return { mind: wrapper } as unknown as NodeTypes;
-  }, [addChild, commitText, onDropFiles, toggleCollapse]);
+  }, [addChild, commitText, liveUpdateText, onDropFiles, onOpenFileDialog, toggleCollapse]);
   const edgeTypes = useMemo(() => ({ branch: StringEdge }) as unknown as EdgeTypes, []);
 
   return (
