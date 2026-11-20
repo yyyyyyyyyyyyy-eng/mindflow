@@ -7,6 +7,7 @@
 // ============================================================================
 
 import { useEffect, useRef, useState } from 'react';
+import { useReactFlow } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import type { PosOffset } from 'mindflow-core';
 import type { MindFlowNode } from '../flowModel';
@@ -63,6 +64,8 @@ export function MindNode({
   const [draft, setDraft] = useState<string | null>(null);  // null=非编辑态
   const taRef = useRef<HTMLTextAreaElement>(null);
   const posDrag = useRef<{ sx: number; sy: number; base: PosOffset } | null>(null);
+  // 画布缩放：手柄位移必须除以 zoom 才与指针 1:1（RF 视口变换，修复瞬移第二诱因）
+  const rf = useReactFlow();
 
   // 进入编辑态时聚焦并初始化草稿
   useEffect(() => {
@@ -78,6 +81,7 @@ export function MindNode({
   };
 
   // —— 十字手柄拖拽：预览走本地投影，松手一次性提交（撤销粒度=一次拖拽） ——
+  // 位移除以画布缩放（zoom）：保证任何缩放下节点与指针严格 1:1 跟随
   const onHandleDown = (e: React.PointerEvent) => {
     e.stopPropagation();
     e.preventDefault();
@@ -88,24 +92,25 @@ export function MindNode({
       // 非受信指针（自动化/测试注入）下捕获可能失败——按钮上的监听器仍生效，拖拽照常
     }
   };
+  const dragPosFrom = (e: React.PointerEvent): PosOffset => {
+    const drag = posDrag.current!;
+    const z = rf.getViewport().zoom || 1;
+    return {
+      dx: drag.base.dx + (e.clientX - drag.sx) / z,
+      dy: drag.base.dy + (e.clientY - drag.sy) / z,
+    };
+  };
   const onHandleMove = (e: React.PointerEvent) => {
-    const drag = posDrag.current;
-    if (!drag) return;
+    if (!posDrag.current) return;
     e.stopPropagation();
-    onPosPreview(id, {
-      dx: drag.base.dx + (e.clientX - drag.sx),
-      dy: drag.base.dy + (e.clientY - drag.sy),
-    });
+    onPosPreview(id, dragPosFrom(e));
   };
   const onHandleUp = (e: React.PointerEvent) => {
-    const drag = posDrag.current;
-    if (!drag) return;
+    if (!posDrag.current) return;
     e.stopPropagation();
+    const pos = dragPosFrom(e);          // 先计算再清状态（先清会 null.base 崩溃——2026-11-20 实测回归）
     posDrag.current = null;
-    onPosCommit(id, {
-      dx: drag.base.dx + (e.clientX - drag.sx),
-      dy: drag.base.dy + (e.clientY - drag.sy),
-    });
+    onPosCommit(id, pos);
   };
   const onHandleCancel = () => {
     const drag = posDrag.current;
@@ -137,7 +142,7 @@ export function MindNode({
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      <div style={box} title={data.hasNote ? '有备注' : undefined}>
+      <div className="mf-node-body" style={box} title={data.hasNote ? '有备注' : undefined}>
         {data.text}
         {data.hasNote && <span style={{ marginLeft: 4, fontSize: 10 }}>▤</span>}
       </div>

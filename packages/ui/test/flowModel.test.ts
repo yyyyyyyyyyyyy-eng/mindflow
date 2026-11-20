@@ -51,13 +51,14 @@ describe('buildFlowGraph', () => {
   const res = makeLayout();
   const theme = getTheme('classic');
 
-  it('投影：节点数量/坐标/尺寸与布局结果一致', () => {
+  it('投影：节点数量/坐标/尺寸与布局结果一致，且声明 dragHandle 限定 RF 拖拽只从卡片本体发起', () => {
     const { nodes } = buildFlowGraph(doc, res, null, theme);
     expect(nodes.length).toBe(4);
     const a = nodes.find((n) => n.id === 'a')!;
     expect(a.position).toEqual({ x: 180, y: -30 });
     expect(a.style?.width).toBe(100);
     expect(a.style?.height).toBe(40);
+    expect(a.dragHandle).toBe('.mf-node-body');
   });
 
   it('主题：根用 rootStyle，其余按深度取逐级配色', () => {

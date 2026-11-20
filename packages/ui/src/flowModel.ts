@@ -225,6 +225,9 @@ export function buildFlowGraph(
       type: 'mind',
       position: { x: rect.x, y: rect.y },
       style: { width: rect.width, height: rect.height },
+      // RF 拖拽只允许从卡片本体发起：顶上手柄（自定义位置）与两侧圆钮不触发 d3 拖拽
+      // （2026-11-20 修复手柄拖拽瞬移：合成 stopPropagation 拦不住 d3 原生监听，必须用官方 dragHandle 隔离）
+      dragHandle: '.mf-node-body',
       data,
     });
   }
