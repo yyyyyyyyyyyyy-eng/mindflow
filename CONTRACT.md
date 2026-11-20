@@ -51,6 +51,20 @@ export interface PosOffset {
   dy: number;
 }
 
+export interface Attachment {
+  id: string;
+  /** 原始文件名 */
+  name: string;
+  /** MIME 类型（image/png、application/pdf 等） */
+  mimeType: string;
+  /** 文件大小（字节） */
+  size: number;
+  /** base64 data URI（图片≤500KB 内联存储）；非图片文件仅存元数据（空字符串） */
+  data: string;
+  /** 是否可在节点内渲染预览 */
+  isImage: boolean;
+}
+
 export interface DocNode {
   id: NodeId;
   text: string;                        // 节点文字，可含 \n（不自动换行，宽度=最长行）
@@ -62,6 +76,7 @@ export interface DocNode {
   labels?: string[];                   // 文字标签
   pos?: PosOffset;                     // 自定义位置：相对布局原位的偏移，仅作用于该节点本身
   image?: string;                      // 节点图片（base64 data URI，≤500KB；2026-11-20 增补）
+  attachments?: Attachment[];         // 文件附件（多文件/多类型；图片内联渲染，非图片存元数据引用；2026-11-20 增补）
 }
 
 export interface MindDoc {

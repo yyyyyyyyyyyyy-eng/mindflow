@@ -3,8 +3,8 @@
 > 本文件由 code-review-worklog 技能自动维护：记录每次需求澄清的问答、代码变更、Bug 及修复方案、所有需求及其实现状态。请保留全部结构标题与表格，条目按时间顺序追加。
 
 - **日志创建时间**：2026-11-18 19:46:54
-- **最近更新**：2026-11-20 21:33:38
-- **最新版本**：v0.18.0
+- **最近更新**：2026-11-20 21:38:28
+- **最新版本**：v0.18.1
 ---
 
 ## 需求跟踪
@@ -29,6 +29,7 @@
 | REQ-016 | Phase 5 补完：PNG 导出（布局引擎→SVG→canvas→PNG blob）+ Markdown/OPML 导出与导入（接线 core 已有函数）+ 导出改下拉菜单 | 2026-11-20 21:23:38 | 已完成 | PNG/.md/.opml 三种导出实测通过 |
 | REQ-017 | ①极端稳定性：500+ 节点/超长文本布局渲染与交互 ②节点图片：拖拽/粘贴/Inspector 上传，MindNode 内联渲染 ③大文档性能优化（onlyRenderVisibleElements） | 2026-11-20 21:26:53 | 已完成 | 401 节点极限实测全绿；图片拖拽/上传/内联就位 |
 | REQ-018 | ①修主页删除无反应 ②MindNode 内联渲染图片（非仅指示器）③全面文件管理（Tauri 原生文件系统 + iCloud 默认目录 + 保存/打开/自动保存） | 2026-11-20 21:31:32 | 已完成 | 删除/图片内联/文件系统全部落地；Tauri APP 文件存储模式待用户实测 |
+| REQ-019 | 文件附件重构：①画布自由拖入（无需选中节点）②一个方块支持多种多个文件 ③节点上回形针按钮可导入 ④删除编辑器工具栏的「导入」按钮（只保留导出） | 2026-11-20 21:36:06 | 已完成 | 文件附件系统全链路落地；待用户在 APP 中拖文件实测 |
 
 <!--
   状态取值：待实现 / 进行中 / 已完成 / 已取消
@@ -400,6 +401,12 @@
 - **需求关联**：REQ-018
 - **变更摘要**：①修删除（confirm WKWebView 静默失效→移除）②MindNode 内联渲染图片（img src=data URI 28px 缩略图）③TauriFsAdapter：文件系统存储（iCloud Drive/MindFlow/ 默认目录，Windows/Linux 降级 ~/Documents），tauri-plugin-fs+dialog 接入 ④localStorage 降级保留（纯浏览器环境）
 - **自查结论**：通过（tsc 0 错误；cargo check 11.6s；浏览器实测：删除 ✓、localStorage 降级 ✓；Tauri 文件系统模式待 APP 实测）
+
+### CHG-038 ｜ 2026-11-20 21:38:28 ｜ 修改
+- **文件**：`CONTRACT.md`、`packages/core/src/types.ts`、`packages/ui/src/{flowModel.ts`、`canvas/MindNode.tsx`、`canvas/MindMapCanvas.tsx`、`inspector/Inspector.tsx}`、`apps/desktop/src/{App.tsx`、`lib/attachments.ts}`
+- **需求关联**：REQ-019
+- **变更摘要**：文件附件重构：①DocNode 增 attachments[]（Attachment：id/name/mimeType/size/data/isImage）②画布空白拖入→选中节点 ③节点回形针📎按钮打开文件选择器（多文件）④MindNode 内联渲染图片缩略图 + 📎N 指示 ⑤Inspector 附件列表（图片预览/文件名/逐项删除/多选添加）⑥删除编辑器工具栏「导入」按钮（保留主页导入）
+- **自查结论**：通过（tsc 双包 0 错误；119 core 用例回归；浏览器实测：无导入按钮 ✓ 回形针 ✓）
 
 ## Bug 记录
 

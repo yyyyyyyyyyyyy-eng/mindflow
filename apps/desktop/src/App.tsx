@@ -17,6 +17,8 @@ import {
 import HomePage from './components/HomePage';
 import { createEmptyDoc } from './lib/emptyDoc';
 import { parseImportFile } from './lib/importFile';
+import { filesToAttachments } from './lib/attachments';
+// 注意：编辑器工具栏的「导入」已移除（用户口径：文件拖入 + 回形针替代）；主页导入保留
 import { exportMflow, exportMarkdown, exportOpml, exportPng } from './lib/exporters';
 import { localStorageAdapter } from './lib/localStorageAdapter';
 import { tauriFsAdapter } from './lib/tauriFsAdapter';
@@ -207,20 +209,6 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
     { label: 'PNG 图片', title: '2x 高清 PNG', run: () => { void exportPng(doc); } },
   ];
 
-  // 导入（编辑页内：替换当前文档内容）
-  const importFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    try {
-      const imported = await parseImportFile(file);
-      service.update((d) => { Object.assign(d, imported); });
-      setSelectedId(null);
-    } catch (err) {
-      alert(`导入失败：${err instanceof Error ? err.message : String(err)}`);
-    }
-  };
-
   return (
     <div className="flex h-full flex-col bg-gray-50">
       {/* 工具栏 */}
@@ -247,7 +235,6 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
         </select>
         <button type="button" className={btn} onClick={() => setShowGallery((v) => !v)}>主题</button>
         <button type="button" className={`${btn} ${showOutline ? 'ring-1 ring-blue-400' : ''}`} onClick={() => setShowOutline((v) => !v)}>☰ 大纲</button>
-        <button type="button" className={btn} onClick={() => document.getElementById('mf-import-input')?.click()} title="导入 .xmind / .mflow / .md / .opml">导入</button>
         {/* 导出下拉 */}
         <div className="relative">
           <button type="button" className={btn} onClick={() => setShowExportMenu((v) => !v)} title="导出">导出 ▾</button>
@@ -266,7 +253,6 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
             </div>
           )}
         </div>
-        <input id="mf-import-input" type="file" accept=".xmind,.mflow,.md,.opml,.markdown,.txt,.xml" className="hidden" onChange={(e) => { void importFile(e); }} />
         <span className="flex-1" />
         <button type="button" className={btn} onClick={onNewDoc} title="新建一张空白导图">＋ 新建</button>
       </header>
@@ -280,7 +266,15 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
             theme={theme}
             selectedId={selectedId}
             onSelectedChange={setSelectedId}
-            onDropImage={(id, dataUri) => { onDocChange((d) => { const l = findNode(d.root, id); if (l) l.node.image = dataUri; }); }}
+            onDropFiles={(id, files) => {
+              void (async () => {
+                const newAtts = await filesToAttachments(files);
+                onDocChange((d) => {
+                  const l = findNode(d.root, id);
+                  if (l) l.node.attachments = [...(l.node.attachments ?? []), ...newAtts];
+                });
+              })();
+            }}
           />
         </main>
 
@@ -308,7 +302,12 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
             isRoot={selectedLoc?.parent === null}
             onNodeChange={patchNode}
             onDelete={deleteNode}
-            onImage={(id, dataUri) => { patchNode(id, { image: dataUri }); }}
+            onDropFiles={(id, files) => {
+              void (async () => {
+                const newAtts = await filesToAttachments(files);
+                patchNode(id, { attachments: [...(selectedNode?.attachments ?? []), ...newAtts] });
+              })();
+            }}
           />
         </aside>
       </div>

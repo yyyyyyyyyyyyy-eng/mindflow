@@ -16,8 +16,8 @@ export interface InspectorProps {
   /** 样式补丁提交（App 侧负责套到对应节点上） */
   onNodeChange: (id: NodeId, patch: Partial<DocNode>) => void;
   onDelete?: (id: NodeId) => void;
-  /** 图片上传（data URI） */
-  onImage?: (id: NodeId, dataUri: string) => void;
+  /** 文件拖入/回形针导入（多文件/多类型） */
+  onDropFiles?: (id: NodeId, files: File[]) => void;
 }
 
 const SHAPES: Array<{ value: ShapeKind; label: string }> = [
@@ -30,7 +30,7 @@ const SHAPES: Array<{ value: ShapeKind; label: string }> = [
 
 const PRIORITIES = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 
-export function Inspector({ node, isRoot = false, onNodeChange, onDelete, onImage }: InspectorProps) {
+export function Inspector({ node, isRoot = false, onNodeChange, onDelete, onDropFiles }: InspectorProps) {
   const [draftText, setDraftText] = useState('');
   const [draftNote, setDraftNote] = useState('');
   const [draftLabels, setDraftLabels] = useState('');
@@ -106,47 +106,48 @@ export function Inspector({ node, isRoot = false, onNodeChange, onDelete, onImag
         </button>
       )}
 
-      {/* 节点图片 */}
-      {onImage && (
+      {/* 文件附件 */}
+      {onDropFiles && (
         <div style={{ ...row, flexDirection: 'column', alignItems: 'stretch' }}>
-          <span style={{ marginBottom: 4 }}>图片</span>
-          {node.image ? (
-            <div style={{ position: 'relative' }}>
-              <img
-                src={node.image}
-                alt="节点图片"
-                style={{ width: '100%', borderRadius: 8, border: '1px solid #e4e7ec', marginBottom: 6 }}
-              />
+          <span style={{ marginBottom: 4 }}>文件附件（{(node.attachments ?? []).length}）</span>
+          {/* 附件列表 */}
+          {(node.attachments ?? []).map((a) => (
+            <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', borderBottom: '1px solid #f2f4f7' }}>
+              {a.isImage ? (
+                <img src={a.data} alt={a.name} style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4 }} />
+              ) : (
+                <span style={{ fontSize: 18 }}>📎</span>
+              )}
+              <span style={{ flex: 1, fontSize: 11, color: '#475467', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
               <button
                 type="button"
-                onClick={() => onNodeChange(node.id, { image: undefined })}
-                style={{ ...input, cursor: 'pointer', color: '#f04438', textAlign: 'center' }}
+                onClick={() => {
+                  const rest = (node.attachments ?? []).filter(x => x.id !== a.id);
+                  onNodeChange(node.id, { attachments: rest.length > 0 ? rest : undefined });
+                }}
+                style={{ border: 0, background: 'none', cursor: 'pointer', color: '#98a2b3', fontSize: 12 }}
               >
-                移除图片
+                ✕
               </button>
             </div>
-          ) : (
-            <label style={{
-              ...input, cursor: 'pointer', textAlign: 'center', color: '#475467',
-              border: '1px dashed #d0d5dd', borderRadius: 8, padding: '14px 8px',
-              display: 'block',
-            }}>
-              📁 选择图片（≤500KB）
-              <input
-                type="file"
-                accept="image/*"
-                style={{ display: 'none' }}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  e.target.value = '';
-                  if (!f || !f.type.startsWith('image/') || f.size > 500 * 1024) return;
-                  const reader = new FileReader();
-                  reader.onload = () => { if (typeof reader.result === 'string') onImage(node.id, reader.result); };
-                  reader.readAsDataURL(f);
-                }}
-              />
-            </label>
-          )}
+          ))}
+          <label style={{
+            ...input, cursor: 'pointer', textAlign: 'center', color: '#475467',
+            border: '1px dashed #d0d5dd', borderRadius: 8, padding: '10px 8px',
+            display: 'block',
+          }}>
+            📎 添加文件（可多选）
+            <input
+              type="file"
+              multiple
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const files = e.target.files;
+                e.target.value = '';
+                if (files && files.length > 0) onDropFiles(node.id, Array.from(files));
+              }}
+            />
+          </label>
         </div>
       )}
 

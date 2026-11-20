@@ -32,6 +32,15 @@ export interface PosOffset {
   dy: number;
 }
 
+export interface Attachment {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  data: string;
+  isImage: boolean;
+}
+
 export interface DocNode {
   id: NodeId;
   text: string;                        // 节点文字，可含 \n（不自动换行，宽度=最长行）
@@ -42,7 +51,8 @@ export interface DocNode {
   icons?: string[];                    // 图标 id，如 'priority-1' 'star'
   labels?: string[];                   // 文字标签
   pos?: PosOffset;                     // 自定义位置：相对布局原位的偏移，仅作用于该节点本身
-  image?: string;                      // 节点图片（base64 data URI，≤500KB；2026-11-20 增补）
+  image?: string;                      // 节点图片（base64 data URI，≤500KB）
+  attachments?: Attachment[];         // 文件附件（多文件/多类型）
 }
 
 export interface MindDoc {

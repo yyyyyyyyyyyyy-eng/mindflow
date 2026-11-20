@@ -22,6 +22,8 @@ export interface MindNodeData extends Record<string, unknown> {
   hasNote: boolean;
   hasImage: boolean;         // 节点图片
   imageSrc: string;          // 图片 data URI（空字符串=无图）
+  imageCount: number;        // 附件中的图片数（attachments）
+  fileCount: number;         // 附件中的非图片文件数
   shape: 'rounded-rect' | 'rect' | 'ellipse' | 'underline' | 'diamond';
   fill: string;
   textColor: string;
@@ -259,6 +261,8 @@ export function buildFlowGraph(
       hasNote: typeof node.note === 'string' && node.note.length > 0,
       hasImage: typeof node.image === 'string' && node.image.length > 0,
       imageSrc: node.image ?? '',
+      imageCount: (node.attachments ?? []).filter(a => a.isImage).length,
+      fileCount: (node.attachments ?? []).filter(a => !a.isImage).length,
       shape,
       fill,
       textColor,

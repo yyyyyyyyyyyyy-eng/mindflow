@@ -54,11 +54,11 @@ export interface MindNodeProps extends NodeProps<MindFlowNode> {
   onCommitText: (id: string, text: string) => void;      // 行内编辑提交
   onToggleCollapse: (id: string) => void;                // 折叠/展开（左侧 −/+）
   onAddChild: (id: string) => void;                      // 右侧 +：添加子层级
-  onDropImage: (id: string, dataUri: string) => void;    // 拖拽图片到节点
+  onDropFiles: (id: string, files: File[]) => void;      // 拖拽/回形针导入文件
 }
 
 export function MindNode({
-  id, data, selected, onCommitText, onToggleCollapse, onAddChild, onDropImage,
+  id, data, selected, onCommitText, onToggleCollapse, onAddChild, onDropFiles,
 }: MindNodeProps) {
   const [draft, setDraft] = useState<string | null>(null);  // null=非编辑态
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -101,20 +101,32 @@ export function MindNode({
     ...shapeStyle(data.shape, data.fill),
   };
 
+  // 回形针：文件选择器
+  const clipRef = useRef<HTMLInputElement>(null);
+
+  /** 处理拖入或选择的文件（多文件/多类型） */
+  const handleFiles = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    onDropFiles(id, Array.from(files));
+  };
+
   return (
     <div
       style={{ position: 'relative', width: '100%', height: '100%' }}
       onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); }}
       onDrop={(e) => {
         e.preventDefault();
-        const file = e.dataTransfer.files?.[0];
-        if (file && file.type.startsWith('image/') && file.size < 500 * 1024) {
-          const reader = new FileReader();
-          reader.onload = () => { if (typeof reader.result === 'string') onDropImage(id, reader.result); };
-          reader.readAsDataURL(file);
-        }
+        e.stopPropagation();
+        handleFiles(e.dataTransfer?.files ?? null);
       }}
     >
+      <input
+        ref={clipRef}
+        type="file"
+        multiple
+        style={{ display: 'none' }}
+        onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }}
+      />
       {/* RF v12 要求节点具备 Handle 才挂载边组——几何由 pinA/pinB 驱动，Handle 仅作挂载锚（隐形、无交互） */}
       <Handle type="source" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
       <Handle type="target" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
@@ -131,6 +143,9 @@ export function MindNode({
           />
         )}
         {data.text}
+        {data.fileCount > 0 && (
+          <span style={{ marginLeft: 4, fontSize: 10, pointerEvents: 'none' }}>📎{data.fileCount}</span>
+        )}
         {data.hasNote && <span style={{ marginLeft: 2, fontSize: 10 }}>▤</span>}
       </div>
 
@@ -186,6 +201,34 @@ export function MindNode({
         title="添加子层级"
       >
         +
+      </button>
+
+      {/* 底部：回形针 = 导入文件（多文件/多类型） */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); clipRef.current?.click(); }}
+        style={{
+          position: 'absolute',
+          left: '50%',
+          bottom: -11,
+          transform: 'translateX(-50%)',
+          height: 18,
+          minWidth: 18,
+          padding: '0 4px',
+          borderRadius: 9,
+          border: '1px solid #d0d5dd',
+          background: '#fff',
+          color: '#475467',
+          fontSize: 10,
+          lineHeight: '16px',
+          textAlign: 'center',
+          cursor: 'pointer',
+          userSelect: 'none',
+          whiteSpace: 'nowrap',
+        }}
+        title="导入文件到节点（支持多文件/图片/文档）"
+      >
+        📎{data.imageCount + data.fileCount > 0 ? `${data.imageCount + data.fileCount}` : ''}
       </button>
 
       {/* 行内编辑覆盖层：按键不冒泡到画布 */}
