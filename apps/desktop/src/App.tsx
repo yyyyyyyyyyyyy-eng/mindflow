@@ -107,7 +107,7 @@ function Shell({ service }: { service: DocumentService }) {
         >
           {STRUCTURES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
-        <button type="button" className={btn} onClick={() => setShowGallery((v) => !v)}>🎨 主题</button>
+        <button type="button" className={btn} onClick={() => setShowGallery((v) => !v)}>主题</button>
         <button type="button" className={`${btn} ${showOutline ? 'ring-1 ring-blue-400' : ''}`} onClick={() => setShowOutline((v) => !v)}>☰ 大纲</button>
         <span className="flex-1" />
         <button

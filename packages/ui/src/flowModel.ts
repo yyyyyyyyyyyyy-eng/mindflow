@@ -8,7 +8,9 @@
 // ============================================================================
 
 import type { Edge, Node } from '@xyflow/react';
-import type { DocNode, LayoutResult, MindDoc, NodeId, Theme } from 'mindflow-core';
+import type {
+  BranchPath, DocNode, LayoutResult, MindDoc, NodeId, Rect, Theme,
+} from 'mindflow-core';
 
 /** 画布节点数据（自定义 'mind' 节点类型的 data） */
 export interface MindNodeData extends Record<string, unknown> {
@@ -65,6 +67,110 @@ export function displayBold(node: DocNode, level: number): boolean {
   return level === 0;
 }
 
+// —— 自定义位置（契约 §2 pos）：布局后处理，子树整体随动 ——————————————
+
+interface Offset {
+  dx: number;
+  dy: number;
+}
+
+const ZERO: Offset = { dx: 0, dy: 0 };
+
+/** 数字归整：与引擎 num() 同规格（保留 2 位小数） */
+function num(v: number): number {
+  return Math.round(v * 100) / 100;
+}
+
+/**
+ * 收集逐节点累计偏移：own = 自身 pos + 祖先累计；无任何 pos 时返回 null（快速路径）。
+ */
+function collectOffsets(root: DocNode): Map<NodeId, Offset> | null {
+  const map = new Map<NodeId, Offset>();
+  let found = false;
+  const walk = (node: DocNode, parent: Offset) => {
+    const own = node.pos;
+    const cur = own
+      ? { dx: parent.dx + own.dx, dy: parent.dy + own.dy }
+      : parent;
+    if (own) found = true;
+    map.set(node.id, cur);
+    for (const child of node.children) walk(child, cur);
+  };
+  walk(root, ZERO);
+  return found ? map : null;
+}
+
+function shiftRect(r: Rect, o: Offset): Rect {
+  return { x: r.x + o.dx, y: r.y + o.dy, width: r.width, height: r.height };
+}
+
+/** 矩形边框上朝向目标的锚点（中心连线与边框的交点） */
+function borderPoint(r: Rect, target: { x: number; y: number }): { x: number; y: number } {
+  const cx = r.x + r.width / 2;
+  const cy = r.y + r.height / 2;
+  const dx = target.x - cx;
+  const dy = target.y - cy;
+  if (dx === 0 && dy === 0) return { x: cx, y: cy };
+  const scale = Math.min(
+    (r.width / 2) / Math.abs(dx || Infinity),
+    (r.height / 2) / Math.abs(dy || Infinity),
+  );
+  return { x: cx + dx * scale, y: cy + dy * scale };
+}
+
+/** 通用锚定贝塞尔：两端取边框交点，主轴决定切线方向（水平/垂直 S 曲线） */
+function regenBranch(from: Rect, to: Rect): string {
+  const pa = borderPoint(from, { x: to.x + to.width / 2, y: to.y + to.height / 2 });
+  const pb = borderPoint(to, { x: from.x + from.width / 2, y: from.y + from.height / 2 });
+  if (Math.abs(pb.x - pa.x) >= Math.abs(pb.y - pa.y)) {
+    const mx = (pa.x + pb.x) / 2;
+    return `M ${num(pa.x)} ${num(pa.y)} C ${num(mx)} ${num(pa.y)}, ${num(mx)} ${num(pb.y)}, ${num(pb.x)} ${num(pb.y)}`;
+  }
+  const my = (pa.y + pb.y) / 2;
+  return `M ${num(pa.x)} ${num(pa.y)} C ${num(pa.x)} ${num(my)}, ${num(pb.x)} ${num(my)}, ${num(pb.x)} ${num(pb.y)}`;
+}
+
+/**
+ * 应用自定义位置偏移（纯函数）：
+ * - 节点矩形按「自身 pos + 祖先累计」平移（子树整体随动）；
+ * - 两端偏移均为 0 的连线保留引擎原 path；任一端有偏移的连线用通用锚定贝塞尔重生成；
+ * - bounds 按平移后的矩形重算。
+ * 文档无任何 pos 时原样返回 res（零开销快速路径）。
+ */
+export function applyPosOffsets(doc: MindDoc, res: LayoutResult): LayoutResult {
+  const offsets = collectOffsets(doc.root);
+  if (offsets === null) return res;
+
+  const nodeRects = new Map<NodeId, Rect>();
+  for (const [id, rect] of res.nodeRects) {
+    nodeRects.set(id, shiftRect(rect, offsets.get(id) ?? ZERO));
+  }
+
+  const branches: BranchPath[] = res.branches.map((b) => {
+    const p = offsets.get(b.fromId) ?? ZERO;
+    const c = offsets.get(b.toId) ?? ZERO;
+    const moved = (p.dx !== 0 || p.dy !== 0 || c.dx !== 0 || c.dy !== 0);
+    if (!moved) return b;                      // 两端未动：保留引擎曲线样式
+    const pr = nodeRects.get(b.fromId);
+    const cr = nodeRects.get(b.toId);
+    if (!pr || !cr) return b;                  // 防御：矩形缺失时不重生成
+    return { ...b, d: regenBranch(pr, cr) };
+  });
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const r of nodeRects.values()) {
+    minX = Math.min(minX, r.x);
+    minY = Math.min(minY, r.y);
+    maxX = Math.max(maxX, r.x + r.width);
+    maxY = Math.max(maxY, r.y + r.height);
+  }
+  return {
+    nodeRects,
+    branches,
+    bounds: { width: maxX - minX, height: maxY - minY },
+  };
+}
+
 /**
  * 构建画布图：文档 + 布局结果 + 主题 → React Flow nodes/edges。
  * @param doc       当前文档
@@ -79,9 +185,11 @@ export function buildFlowGraph(
   theme: Theme,
 ): { nodes: MindFlowNode[]; edges: MindFlowEdge[] } {
   const index = indexTree(doc.root);
+  // 自定义位置后处理：pos 偏移在此统一应用（子树随动 + 连线重生成）
+  const geo = applyPosOffsets(doc, res);
   const nodes: MindFlowNode[] = [];
 
-  for (const [id, rect] of res.nodeRects) {
+  for (const [id, rect] of geo.nodeRects) {
     const entry = index.get(id);
     if (!entry) continue;                 // 防御：布局结果与文档不一致时跳过
     const { node, level } = entry;
@@ -121,7 +229,7 @@ export function buildFlowGraph(
     });
   }
 
-  const edges: MindFlowEdge[] = res.branches.map((b) => {
+  const edges: MindFlowEdge[] = geo.branches.map((b) => {
     const target = index.get(b.toId);
     return {
       id: `e-${b.fromId}-${b.toId}`,

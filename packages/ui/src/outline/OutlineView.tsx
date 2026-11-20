@@ -31,18 +31,16 @@ export function OutlineView({ doc, onDocChange, selectedId, onSelectedChange }: 
     if (e.key === 'Enter') {
       e.preventDefault();
       const id = defaultIdGen();
+      // 2026-11-20 语义修订：Enter 在任何层级都创建「子层级」——与根级行为一致，
+      // 消除「根回车=子级、更深层回车=同级」的不一致。需要同级时：Enter 后 Shift+Tab 升级。
       onDocChange((d) => {
         const loc = findNode(d.root, row.id);
         if (!loc) return;
-        if (loc.parent === null) {                          // 根：Enter 转加子节点
-          loc.node.collapsed = false;
-          loc.node.children.push({ id, text: '分支主题', children: [] });
-          return;
-        }
-        loc.parent.children.splice(loc.index + 1, 0, { id, text: '分支主题', children: [] });
+        loc.node.collapsed = false;                        // 加子节点自动展开当前行
+        loc.node.children.push({ id, text: '分支主题', children: [] });
       });
       onSelectedChange?.(id);
-      // 新行渲染后聚焦（下一帧行列表已含新节点）
+      // 新行渲染后聚焦：新子级在展平行列表中紧跟当前行（idx+1）
       requestAnimationFrame(() => {
         const rowsNow = collectOutlineRows(doc.root);
         focusRow(Math.min(idx + 1, rowsNow.length));

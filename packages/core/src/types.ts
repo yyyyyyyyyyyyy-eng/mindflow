@@ -25,6 +25,13 @@ export interface NodeStyle {
   fontSize?: number;
 }
 
+export interface PosOffset {
+  /** 相对布局原位的水平偏移（px，画布坐标） */
+  dx: number;
+  /** 相对布局原位的垂直偏移（px，画布坐标） */
+  dy: number;
+}
+
 export interface DocNode {
   id: NodeId;
   text: string;                        // 节点文字，可含 \n（不自动换行，宽度=最长行）
@@ -34,6 +41,7 @@ export interface DocNode {
   style?: NodeStyle;                   // 缺省继承主题
   icons?: string[];                    // 图标 id，如 'priority-1' 'star'
   labels?: string[];                   // 文字标签
+  pos?: PosOffset;                     // 自定义位置：相对布局原位的偏移，子树整体随动（2026-11-20 增补）
 }
 
 export interface MindDoc {

@@ -15,10 +15,11 @@ import {
 } from '@xyflow/react';
 import type { EdgeTypes, NodeProps, NodeTypes } from '@xyflow/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { produce } from 'immer';
 import {
   DEFAULT_LAYOUT_OPTIONS, defaultIdGen, layout, normalizeOptions,
 } from 'mindflow-core';
-import type { MindDoc, NodeId, TextSize, Theme } from 'mindflow-core';
+import type { MindDoc, NodeId, PosOffset, TextSize, Theme } from 'mindflow-core';
 import { buildFlowGraph } from '../flowModel';
 import type { MindFlowEdge, MindFlowNode } from '../flowModel';
 import { MIND_FONT_FAMILY, createBrowserMeasureText } from '../measure';
@@ -142,6 +143,29 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
     setEditingId(null);
   }, [onDocChange]);
 
+  // —— 十字手柄：自定义位置（预览走本地投影不进文档，松手一次性提交） ——
+  const getBasePos = useCallback((id: NodeId): PosOffset =>
+    findNode(doc.root, id)?.node.pos ?? { dx: 0, dy: 0 }, [doc.root]);
+
+  const onPosPreview = useCallback((id: NodeId, pos: PosOffset) => {
+    const preview = produce(doc, (d) => {
+      const loc = findNode(d.root, id);
+      if (loc) loc.node.pos = pos;
+    });
+    const g = buildFlowGraph(preview, layoutResult, editingId, theme);
+    setNodes(g.nodes);
+    setEdges(g.edges);
+  }, [doc, layoutResult, editingId, theme, setNodes, setEdges]);
+
+  const onPosCommit = useCallback((id: NodeId, pos: PosOffset) => {
+    onDocChange((d) => {
+      const loc = findNode(d.root, id);
+      if (!loc) return;
+      // 拖回原位（0,0 累计）= 清除自定义位置，回归布局
+      loc.node.pos = (pos.dx === 0 && pos.dy === 0) ? undefined : pos;
+    });
+  }, [onDocChange]);
+
   // —— 拖拽改父级：松手时与其它节点相交 → 挂为其子；否则复位原位 ——
   const onNodeDragStop = useCallback((_e: MouseEvent | TouchEvent, dragged: MindFlowNode) => {
     if (dragged.id === doc.root.id) { setNodes(graphRef.current.nodes); return; }
@@ -177,10 +201,18 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
   // —— 自定义节点/边类型 ——
   const nodeTypes = useMemo(() => {
     const wrapper = (p: NodeProps<MindFlowNode>) => (
-      <MindNode {...p} onCommitText={commitText} onToggleCollapse={toggleCollapse} />
+      <MindNode
+        {...p}
+        onCommitText={commitText}
+        onToggleCollapse={toggleCollapse}
+        onAddChild={addChild}
+        getBasePos={getBasePos}
+        onPosPreview={onPosPreview}
+        onPosCommit={onPosCommit}
+      />
     );
     return { mind: wrapper } as unknown as NodeTypes;
-  }, [commitText, toggleCollapse]);
+  }, [addChild, commitText, getBasePos, onPosCommit, onPosPreview, toggleCollapse]);
   const edgeTypes = useMemo(() => ({ branch: BranchEdge }) as unknown as EdgeTypes, []);
 
   return (

@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { getTheme } from 'mindflow-core';
 import type { LayoutResult, MindDoc } from 'mindflow-core';
-import { buildFlowGraph, colorByLevel, indexTree } from '../src/flowModel';
+import { applyPosOffsets, buildFlowGraph, colorByLevel, indexTree } from '../src/flowModel';
 
 function makeDoc(): MindDoc {
   return {
@@ -105,5 +105,58 @@ describe('buildFlowGraph', () => {
     const idx = indexTree(doc.root);
     expect(idx.size).toBe(5);                       // 含 b1
     expect(idx.get('b1')!.level).toBe(2);
+  });
+});
+
+describe('applyPosOffsets（自定义位置，2026-11-20）', () => {
+  it('无任何 pos：快速路径原样返回同一对象', () => {
+    const res = makeLayout();
+    expect(applyPosOffsets(makeDoc(), res)).toBe(res);
+  });
+
+  it('子树随动：a.pos 平移 a 与 a1，未动节点保持原位', () => {
+    const doc = makeDoc();
+    const a = doc.root.children[0]!;
+    a.pos = { dx: 40, dy: -10 };
+    const shifted = applyPosOffsets(doc, makeLayout());
+
+    expect(shifted.nodeRects.get('a')).toEqual({ x: 220, y: -40, width: 100, height: 40 });
+    expect(shifted.nodeRects.get('a1')).toEqual({ x: 380, y: -60, width: 80, height: 36 });
+    expect(shifted.nodeRects.get('r')).toEqual({ x: 0, y: 0, width: 120, height: 40 });
+    expect(shifted.nodeRects.get('b')).toEqual({ x: 180, y: 30, width: 90, height: 40 });
+  });
+
+  it('连线规则：两端未动保留引擎 path；任一端动过则重生成（锚定贝塞尔）', () => {
+    const doc = makeDoc();
+    doc.root.children[0]!.pos = { dx: 40, dy: -10 };
+    const natural = makeLayout();
+    const shifted = applyPosOffsets(doc, natural);
+
+    const rb = shifted.branches.find((b) => b.toId === 'b')!;
+    expect(rb.d).toBe('M120 20 C150 20 150 50 180 50');    // r→b 两端未动：原样
+
+    const ra = shifted.branches.find((b) => b.toId === 'a')!;
+    expect(ra.d).not.toBe('M120 20 C150 20 150 -10 180 -10');
+    expect(ra.d.startsWith('M 120')).toBe(true);          // 从父边框出发
+    const endX = Number(ra.d.split(' ').slice(-2, -1)[0]);
+    expect(endX).toBeCloseTo(220, 1);                     // 到子（平移后）边框
+
+    const aa1 = shifted.branches.find((b) => b.toId === 'a1')!;
+    expect(aa1.d).not.toBe('M280 -10 C310 -10 310 -32 340 -32');  // 两端都动过 → 重生成
+  });
+
+  it('bounds 按平移后矩形重算', () => {
+    const doc = makeDoc();
+    doc.root.children[0]!.pos = { dx: 40, dy: -10 };
+    const shifted = applyPosOffsets(doc, makeLayout());
+    expect(shifted.bounds).toEqual({ width: 460, height: 130 });
+  });
+
+  it('buildFlowGraph 集成：节点投影坐标带偏移', () => {
+    const doc = makeDoc();
+    doc.root.children[0]!.pos = { dx: 40, dy: -10 };
+    const { nodes } = buildFlowGraph(doc, makeLayout(), null, getTheme('classic'));
+    expect(nodes.find((n) => n.id === 'a')!.position).toEqual({ x: 220, y: -40 });
+    expect(nodes.find((n) => n.id === 'b')!.position).toEqual({ x: 180, y: 30 });
   });
 });

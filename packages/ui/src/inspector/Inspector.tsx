@@ -90,6 +90,20 @@ export function Inspector({ node, isRoot = false, onNodeChange, onDelete }: Insp
         />
       </div>
 
+      {node.pos && (
+        <button
+          type="button"
+          onClick={() => onNodeChange(node.id, { pos: undefined })}
+          style={{
+            marginBottom: 10, padding: '6px 0', fontSize: 12, cursor: 'pointer',
+            border: '1px solid #d0d5dd', borderRadius: 8, color: '#475467', background: '#fff',
+          }}
+          title="移除自定义位置偏移，节点回归自动布局"
+        >
+          清除自定义位置（偏移 {node.pos.dx}, {node.pos.dy}）
+        </button>
+      )}
+
       <div style={row}>
         <span>形状</span>
         <select
