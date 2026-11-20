@@ -25,6 +25,8 @@ export function StringEdge({ id, data, sourceX, sourceY, targetX, targetY }: Edg
   const ropeRef = useRef<Rope | null>(null);
   const rafRef = useRef(0);
   const lastPtr = useRef<{ x: number; y: number } | null>(null);
+  /** 上次应用的钉点坐标（死区防抖：微抖 <0.5px 忽略——提交/重渲染的亚像素抖动不再扰绳） */
+  const lastPins = useRef<{ ax: number; ay: number; bx: number; by: number } | null>(null);
 
   const writeAll = (d: string) => {
     for (const p of pathsRef.current) p?.setAttribute('d', d);
@@ -63,9 +65,26 @@ export function StringEdge({ id, data, sourceX, sourceY, targetX, targetY }: Edg
   const bX = typeof targetX === 'number' ? targetX : data?.pinB?.x;
   const bY = typeof targetY === 'number' ? targetY - 3 : data?.pinB?.y;
 
-  // 钉点变更（拖动/重布局）：更新锚点并踢醒模拟
+  // 钉点变更（拖动/重布局）：更新锚点并踢醒模拟；<0.5px 的亚像素抖动走死区（不扰绳）
   useEffect(() => {
     if (aX === undefined || aY === undefined || bX === undefined || bY === undefined) return;
+    const prev = lastPins.current;
+    if (prev !== null
+      && Math.abs(prev.ax - aX) < 0.5 && Math.abs(prev.ay - aY) < 0.5
+      && Math.abs(prev.bx - bX) < 0.5 && Math.abs(prev.by - bY) < 0.5) {
+      return;                                             // 死区：提交/重渲染的微抖不进物理
+    }
+    if (prev !== null) {
+      // 探针：真实钉点变更（死区外）——排障「松手全体绳晃」用
+      sendDebugEdge('pin-change', {
+        id,
+        dax: Math.round((aX - prev.ax) * 10) / 10,
+        day: Math.round((aY - prev.ay) * 10) / 10,
+        dbx: Math.round((bX - prev.bx) * 10) / 10,
+        dby: Math.round((bY - prev.by) * 10) / 10,
+      });
+    }
+    lastPins.current = { ax: aX, ay: aY, bx: bX, by: bY };
     if (ropeRef.current === null) {
       ropeRef.current = new Rope({ x: aX, y: aY }, { x: bX, y: bY });
     } else {
