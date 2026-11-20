@@ -69,7 +69,16 @@ export const localStorageAdapter: StorageAdapter = {
     const i = docs.findIndex((d) => d.id === doc.id);
     if (i >= 0) docs[i] = doc;
     else docs.push(doc);
-    writeAll(docs);
+    try {
+      writeAll(docs);
+    } catch (err) {
+      // localStorage quota（~5MB）超限：文档含大量图片附件时发生
+      throw new Error(
+        `存储空间不足（localStorage ~5MB 上限）。` +
+        `当前文档含图片附件，请减少附件数量或等待 Tauri 文件系统模式启用。` +
+        `原始错误：${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   },
 
   async delete(id: string): Promise<void> {

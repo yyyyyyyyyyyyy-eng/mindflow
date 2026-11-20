@@ -4,23 +4,44 @@
 
 import type { Attachment } from 'mindflow-core';
 
-const MAX_INLINE = 500 * 1024; // 500KB
-
 export const isTauri = '__TAURI_INTERNALS__' in window || '__TAURI__' in window;
 
-/** File[] → Attachment[]（图片≤500KB 转 base64 内联；非图片仅存元数据引用） */
+/** 压缩图片：canvas 重绘为 ≤400px JPEG（质量 0.8），500KB PNG → ~50KB JPEG */
+async function compressImage(file: File): Promise<string> {
+  // 从 File 创建 Image
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => { URL.revokeObjectURL(url); resolve(image); };
+    image.onerror = () => { URL.revokeObjectURL(url); reject(new Error('图片加载失败')); };
+    image.src = url;
+  });
+
+  // 等比缩放至最大 400px
+  const maxDim = 400;
+  const scale = Math.min(maxDim / img.width, maxDim / img.height, 1);
+  const w = Math.max(1, Math.round(img.width * scale));
+  const h = Math.max(1, Math.round(img.height * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('canvas 2D 上下文不可用');
+  ctx.drawImage(img, 0, 0, w, h);
+  return canvas.toDataURL('image/jpeg', 0.8);
+}
+
+/** File[] → Attachment[]（图片压缩至 400px JPEG 内联；非图片仅存元数据引用） */
 export async function filesToAttachments(files: File[]): Promise<Attachment[]> {
   const out: Attachment[] = [];
   for (const f of files) {
     const isImage = f.type.startsWith('image/');
     let data = '';
-    if (isImage && f.size <= MAX_INLINE) {
-      data = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => { resolve(typeof reader.result === 'string' ? reader.result : ''); };
-        reader.onerror = () => resolve('');
-        reader.readAsDataURL(f);
-      });
+    if (isImage) {
+      try {
+        data = await compressImage(f);              // 压缩后的 data URI（远小于原始文件）
+      } catch { /* 压缩失败则不内联 */ }
     }
     out.push({
       id: crypto.randomUUID(),
@@ -28,7 +49,7 @@ export async function filesToAttachments(files: File[]): Promise<Attachment[]> {
       mimeType: f.type || 'application/octet-stream',
       size: f.size,
       data,
-      isImage: isImage && data.length > 0,
+      isImage: data.length > 0,
     });
   }
   return out;
