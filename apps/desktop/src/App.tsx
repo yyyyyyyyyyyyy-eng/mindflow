@@ -10,7 +10,7 @@ import {
 import {
   BUILTIN_THEMES, createDocumentService, getTheme,
 } from 'mindflow-core';
-import type { DocumentService, MindDoc, NodeId, StructureType } from 'mindflow-core';
+import type { DocumentService, MindDoc, NodeId, StorageAdapter, StructureType } from 'mindflow-core';
 import {
   Inspector, MindMapCanvas, OutlineView, ThemeGallery, findNode,
 } from 'mindflow-ui';
@@ -22,11 +22,6 @@ import { filesToAttachments } from './lib/attachments';
 import { exportMflow, exportMarkdown, exportOpml, exportPng } from './lib/exporters';
 import { localStorageAdapter } from './lib/localStorageAdapter';
 import { tauriFsAdapter } from './lib/tauriFsAdapter';
-
-/** 存储适配器：Tauri 环境用文件系统（iCloud），降级用 localStorage（纯浏览器） */
-const adapter = '__TAURI_INTERNALS__' in window || '__TAURI__' in window
-  ? tauriFsAdapter
-  : localStorageAdapter;
 
 const STRUCTURES: Array<{ value: StructureType; label: string }> = [
   { value: 'mindmap', label: '思维导图' },
@@ -47,6 +42,22 @@ type View = { kind: 'home' } | { kind: 'editor'; service: DocumentService; docId
 export function App() {
   const [view, setView] = useState<View>({ kind: 'home' });
   const [homeDocs, setHomeDocs] = useState<MindDoc[]>([]);
+  /** 运行时探测的存储适配器（Tauri fs 失败自动降级 localStorage） */
+  const [adapter, setAdapter] = useState<StorageAdapter>(() => {
+    const isTauri = '__TAURI_INTERNALS__' in window || '__TAURI__' in window;
+    return isTauri ? tauriFsAdapter : localStorageAdapter;
+  });
+
+  // 探测：Tauri 环境下试跑一次 list()，失败即降级 localStorage
+  useEffect(() => {
+    if (!('__TAURI_INTERNALS__' in window || '__TAURI__' in window)) return;
+    void tauriFsAdapter.list()
+      .then(() => setAdapter(tauriFsAdapter))
+      .catch(() => {
+        console.warn('[MindFlow] Tauri 文件系统不可用（权限或插件配置），降级 localStorage');
+        setAdapter(localStorageAdapter);
+      });
+  }, []);
 
   const refreshHome = useCallback(async () => {
     const metas = await adapter.list();
