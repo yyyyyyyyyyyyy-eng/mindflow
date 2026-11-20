@@ -20,7 +20,7 @@ function sendDebugEdge(kind: string, extra: Record<string, unknown> = {}): void 
   w.__mfSendDebug?.({ k: kind, ...extra });
 }
 
-export function StringEdge({ id, data }: EdgeProps<MindFlowEdge>) {
+export function StringEdge({ id, data, sourceX, sourceY, targetX, targetY }: EdgeProps<MindFlowEdge>) {
   const pathsRef = useRef<Array<SVGPathElement | null>>([]);
   const ropeRef = useRef<Rope | null>(null);
   const rafRef = useRef(0);
@@ -55,20 +55,26 @@ export function StringEdge({ id, data }: EdgeProps<MindFlowEdge>) {
     rafRef.current = requestAnimationFrame(tick);
   };
 
+  // 实时钉点（2026-11-20 拖动跟随升级）：
+  // 优先用 RF 逐帧提供的 handle 坐标（拖动时随节点实时移动 → 绳被甩起再落回）；
+  // handle 坐标缺失时回退 data.pinA/pinB（flowModel 计算的钉球心，y-3 与 handle 顶边对齐）。
+  const aX = typeof sourceX === 'number' ? sourceX : data?.pinA?.x;
+  const aY = typeof sourceY === 'number' ? sourceY - 3 : data?.pinA?.y;
+  const bX = typeof targetX === 'number' ? targetX : data?.pinB?.x;
+  const bY = typeof targetY === 'number' ? targetY - 3 : data?.pinB?.y;
+
   // 钉点变更（拖动/重布局）：更新锚点并踢醒模拟
-  const pinA = data?.pinA;
-  const pinB = data?.pinB;
   useEffect(() => {
-    if (!pinA || !pinB) return;
+    if (aX === undefined || aY === undefined || bX === undefined || bY === undefined) return;
     if (ropeRef.current === null) {
-      ropeRef.current = new Rope(pinA, pinB);
+      ropeRef.current = new Rope({ x: aX, y: aY }, { x: bX, y: bY });
     } else {
-      ropeRef.current.setEndpoints(pinA, pinB);
+      ropeRef.current.setEndpoints({ x: aX, y: aY }, { x: bX, y: bY });
     }
     writeAll(ropeRef.current.pathD());
     ensureLoop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pinA?.x, pinA?.y, pinB?.x, pinB?.y]);
+  }, [aX, aY, bX, bY]);
 
   // 卸载清理：停掉 rAF（含清零，见 stopLoop）
   useEffect(() => () => {
@@ -105,7 +111,7 @@ export function StringEdge({ id, data }: EdgeProps<MindFlowEdge>) {
   const color = data?.color ?? '#4f7cf7';
 
   // 防御：钉点缺失（布局与文档不一致的过渡帧）→ 回退渲染布局 d
-  if (!pinA || !pinB) {
+  if (aX === undefined || aY === undefined || bX === undefined || bY === undefined) {
     return typeof fallbackD === 'string'
       ? <BaseEdge id={id} path={fallbackD} style={{ stroke: color, strokeWidth: 2, fill: 'none' }} />
       : null;
