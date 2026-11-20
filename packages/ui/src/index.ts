@@ -17,6 +17,7 @@ export { thumbnailModel } from './thumb/DocThumbnailModel';
 export type { ThumbModel, ThumbNode } from './thumb/DocThumbnailModel';
 export { DocThumbnail } from './thumb/DocThumbnail';
 export type { DocThumbnailProps } from './thumb/DocThumbnail';
+export { applyPosOffsets, colorByLevel, anchorFor, pinOf } from './flowModel';
 export { buildFlowGraph, indexTree } from './flowModel';
 export type { MindFlowNode, MindFlowEdge, MindNodeData, MindBranchData } from './flowModel';
 export { collectOutlineRows, findNode, inSubtree } from './treeOps';

@@ -45,12 +45,12 @@ export default function HomePage({ docs, onCreateBlank, onImportFile, onOpen, on
             onClick={() => fileRef.current?.click()}
             className="rounded-xl border border-gray-300 bg-white px-6 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
           >
-            导入本地文件
+            导入文件（.xmind / .md / .opml / .mflow）
           </button>
           <input
             ref={fileRef}
             type="file"
-            accept=".xmind,.mflow"
+            accept=".xmind,.mflow,.md,.opml,.markdown,.txt,.xml"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];

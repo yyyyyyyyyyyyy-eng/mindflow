@@ -17,6 +17,7 @@ import {
 import HomePage from './components/HomePage';
 import { createEmptyDoc } from './lib/emptyDoc';
 import { parseImportFile } from './lib/importFile';
+import { exportMflow, exportMarkdown, exportOpml, exportPng } from './lib/exporters';
 import { localStorageAdapter } from './lib/localStorageAdapter';
 
 const STRUCTURES: Array<{ value: StructureType; label: string }> = [
@@ -191,6 +192,16 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
 
   const btn = 'px-3 py-1.5 text-sm rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed';
 
+  // 导出菜单（下拉）
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
+  const exportActions: Array<{ label: string; title: string; run: () => void | Promise<void> }> = [
+    { label: '.mflow', title: 'MindFlow 原生格式', run: () => exportMflow(doc) },
+    { label: '.md', title: 'Markdown（可再编辑）', run: () => exportMarkdown(doc) },
+    { label: '.opml', title: 'OPML 大纲格式', run: () => exportOpml(doc) },
+    { label: 'PNG 图片', title: '2x 高清 PNG', run: () => { void exportPng(doc); } },
+  ];
+
   // 导入（编辑页内：替换当前文档内容）
   const importFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -203,16 +214,6 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
     } catch (err) {
       alert(`导入失败：${err instanceof Error ? err.message : String(err)}`);
     }
-  };
-
-  const exportDoc = () => {
-    const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `MindFlow-${doc.title || '未命名'}.mflow`;
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   return (
@@ -241,9 +242,26 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
         </select>
         <button type="button" className={btn} onClick={() => setShowGallery((v) => !v)}>主题</button>
         <button type="button" className={`${btn} ${showOutline ? 'ring-1 ring-blue-400' : ''}`} onClick={() => setShowOutline((v) => !v)}>☰ 大纲</button>
-        <button type="button" className={btn} onClick={() => document.getElementById('mf-import-input')?.click()} title="导入 .xmind / .mflow 到当前文档">导入</button>
-        <button type="button" className={btn} onClick={exportDoc} title="导出为 .mflow 文件">导出</button>
-        <input id="mf-import-input" type="file" accept=".xmind,.mflow" className="hidden" onChange={(e) => { void importFile(e); }} />
+        <button type="button" className={btn} onClick={() => document.getElementById('mf-import-input')?.click()} title="导入 .xmind / .mflow / .md / .opml">导入</button>
+        {/* 导出下拉 */}
+        <div className="relative">
+          <button type="button" className={btn} onClick={() => setShowExportMenu((v) => !v)} title="导出">导出 ▾</button>
+          {showExportMenu && (
+            <div className="absolute right-0 top-full z-50 mt-1 min-w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+              {exportActions.map((a) => (
+                <button
+                  key={a.label}
+                  type="button"
+                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                  onClick={() => { a.run(); setShowExportMenu(false); }}
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <input id="mf-import-input" type="file" accept=".xmind,.mflow,.md,.opml,.markdown,.txt,.xml" className="hidden" onChange={(e) => { void importFile(e); }} />
         <span className="flex-1" />
         <button type="button" className={btn} onClick={onNewDoc} title="新建一张空白导图">＋ 新建</button>
       </header>
