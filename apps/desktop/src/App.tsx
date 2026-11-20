@@ -67,6 +67,9 @@ function Shell({ service }: { service: DocumentService }) {
   );
 
   // 调试探针（dev-only）：前端遥测 → vite dev server /__mf-debug → 仓库根 mf-debug.log
+  const dbg = useCallback((p: Record<string, unknown>) => {
+    (window as Window & { __mfSendDebug?: (payload: Record<string, unknown>) => void }).__mfSendDebug?.(p);
+  }, []);
   useEffect(() => {
     (window as Window & { __mfSendDebug?: (p: Record<string, unknown>) => void }).__mfSendDebug =
       (p) => {
@@ -111,8 +114,14 @@ function Shell({ service }: { service: DocumentService }) {
       {/* 工具栏 */}
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-gray-200 bg-white px-3">
         <span className="mr-1 text-sm font-bold tracking-wide">MindFlow</span>
-        <button type="button" className={btn} disabled={!service.canUndo()} onClick={() => service.undo()} title="撤销 (⌘Z)">↶ 撤销</button>
-        <button type="button" className={btn} disabled={!service.canRedo()} onClick={() => service.redo()} title="重做 (⇧⌘Z)">↷ 重做</button>
+        <button type="button" className={btn} disabled={!service.canUndo()} onClick={() => {
+          dbg({ k: 'undo-click', canUndo: service.canUndo() });
+          const ok = service.undo();
+          dbg({ k: 'undo-result', ok });
+        }} title="撤销 (⌘Z)">↶ 撤销</button>
+        <button type="button" className={btn} disabled={!service.canRedo()} onClick={() => {
+          dbg({ k: 'redo-click', ok: service.redo() });
+        }} title="重做 (⇧⌘Z)">↷ 重做</button>
         <span className="mx-1 h-6 w-px bg-gray-200" />
         <select
           className={`${btn} w-36`}

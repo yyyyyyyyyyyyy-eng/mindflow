@@ -1,23 +1,17 @@
 // ============================================================================
-// 自定义节点组件（type: 'mind'）：布局给定的定尺寸框 + 主题配色 + 三组控件：
-// - 左侧圆钮 −/+：折叠/展开（原右侧，2026-11-20 与加号对调成镜像位）
-// - 右侧圆钮 +：点击添加一个子层级
-// - 顶部十字手柄：按住拖拽 = 自定义位置（子树整体随动，松手提交，一次撤销）
+// 自定义节点组件（type: 'mind'）：卡片 + 三组视觉元素。
+//
+// 交互模型（2026-11-20 全面重写，用户澄清）：
+// - 顶上小钉 = 纯装饰占位（后续钉子+细绳的预留位），不承担任何功能；
+// - 卡片本体 = 唯一拖动入口（dragHandle '.mf-node-body'）：
+//     拖到空白处 = 就地定位（提交 pos，可撤销）；拖到另一节点上 = 挂为其子节点；
+// - 左侧 −/+ 圆钮：折叠/展开；右侧 + 圆钮：添加子层级；双击：行内编辑。
 // 所有几何来自节点 style（width/height）与位置，组件自身不做布局计算。
 // ============================================================================
 
 import { useEffect, useRef, useState } from 'react';
-import { useReactFlow } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
-import type { PosOffset } from 'mindflow-core';
 import type { MindFlowNode } from '../flowModel';
-
-/** 调试探针（dev-only）：App 侧注入 window.__mfSendDebug，未注入时零开销 */
-type MfDebug = (payload: Record<string, unknown>) => void;
-function sendDebug(p: Record<string, unknown>): void {
-  const w = window as Window & { __mfSendDebug?: MfDebug };
-  w.__mfSendDebug?.(p);
-}
 
 /** 形状 → 圆角 / 裁剪样式（diamond 用 clip-path，underline 用底边线） */
 function shapeStyle(shape: MindFlowNode['data']['shape'], fill: string): React.CSSProperties {
@@ -59,20 +53,13 @@ export interface MindNodeProps extends NodeProps<MindFlowNode> {
   onCommitText: (id: string, text: string) => void;      // 行内编辑提交
   onToggleCollapse: (id: string) => void;                // 折叠/展开（左侧 −/+）
   onAddChild: (id: string) => void;                      // 右侧 +：添加子层级
-  getBasePos: (id: string) => PosOffset;                 // 拖拽起点：节点当前 pos
-  onPosPreview: (id: string, pos: PosOffset) => void;    // 十字拖拽中：实时预览
-  onPosCommit: (id: string, pos: PosOffset) => void;     // 十字拖拽松手：提交（0,0 时清除）
 }
 
 export function MindNode({
-  id, data, selected,
-  onCommitText, onToggleCollapse, onAddChild, getBasePos, onPosPreview, onPosCommit,
+  id, data, selected, onCommitText, onToggleCollapse, onAddChild,
 }: MindNodeProps) {
   const [draft, setDraft] = useState<string | null>(null);  // null=非编辑态
   const taRef = useRef<HTMLTextAreaElement>(null);
-  const posDrag = useRef<{ sx: number; sy: number; base: PosOffset } | null>(null);
-  // 画布缩放：手柄位移必须除以 zoom 才与指针 1:1（RF 视口变换，修复瞬移第二诱因）
-  const rf = useReactFlow();
 
   // 进入编辑态时聚焦并初始化草稿
   useEffect(() => {
@@ -85,52 +72,6 @@ export function MindNode({
   const commit = () => {
     if (draft !== null && draft !== data.text) onCommitText(id, draft);
     setDraft(null);
-  };
-
-  // —— 十字手柄拖拽：预览走本地投影，松手一次性提交（撤销粒度=一次拖拽） ——
-  // 位移除以画布缩放（zoom）：保证任何缩放下节点与指针严格 1:1 跟随
-  const moveSeq = useRef(0);
-  const onHandleDown = (e: React.PointerEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    posDrag.current = { sx: e.clientX, sy: e.clientY, base: getBasePos(id) };
-    sendDebug({ k: 'pin-down', id, cx: e.clientX, cy: e.clientY, z: rf.getViewport().zoom, base: getBasePos(id) });
-    try {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    } catch {
-      // 非受信指针（自动化/测试注入）下捕获可能失败——按钮上的监听器仍生效，拖拽照常
-    }
-  };
-  const dragPosFrom = (e: React.PointerEvent): PosOffset => {
-    const drag = posDrag.current!;
-    const z = rf.getViewport().zoom || 1;
-    return {
-      dx: drag.base.dx + (e.clientX - drag.sx) / z,
-      dy: drag.base.dy + (e.clientY - drag.sy) / z,
-    };
-  };
-  const onHandleMove = (e: React.PointerEvent) => {
-    if (!posDrag.current) return;
-    e.stopPropagation();
-    const pos = dragPosFrom(e);
-    if (moveSeq.current++ % 2 === 0) {
-      sendDebug({ k: 'pin-move', id, cx: e.clientX, cy: e.clientY, z: rf.getViewport().zoom, dx: pos.dx, dy: pos.dy });
-    }
-    onPosPreview(id, pos);
-  };
-  const onHandleUp = (e: React.PointerEvent) => {
-    if (!posDrag.current) return;
-    e.stopPropagation();
-    const pos = dragPosFrom(e);          // 先计算再清状态（先清会 null.base 崩溃——2026-11-20 实测回归）
-    posDrag.current = null;
-    sendDebug({ k: 'pin-up', id, cx: e.clientX, cy: e.clientY, dx: pos.dx, dy: pos.dy });
-    onPosCommit(id, pos);
-  };
-  const onHandleCancel = () => {
-    const drag = posDrag.current;
-    if (!drag) return;
-    posDrag.current = null;
-    onPosPreview(id, drag.base);                       // 取消：复位预览
   };
 
   const box: React.CSSProperties = {
@@ -149,7 +90,7 @@ export function MindNode({
     overflow: 'hidden',
     boxSizing: 'border-box',
     padding: data.shape === 'diamond' ? '0 18%' : undefined,
-    cursor: 'pointer',
+    cursor: 'grab',                                       // 本体 = 拖动入口
     border: selected ? '2px solid rgba(79,124,247,0.9)' : undefined,
     ...shapeStyle(data.shape, data.fill),
   };
@@ -160,6 +101,24 @@ export function MindNode({
         {data.text}
         {data.hasNote && <span style={{ marginLeft: 4, fontSize: 10 }}>▤</span>}
       </div>
+
+      {/* 顶上小钉：纯装饰占位（钉子+细绳预留位），无任何交互 */}
+      <span
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: -9,
+          transform: 'translateX(-50%)',
+          width: 12,
+          height: 12,
+          borderRadius: '50%',
+          background: 'radial-gradient(circle at 30% 30%, #ffffff 0%, #d5dae3 45%, #8a94a6 100%)',
+          border: '1px solid #7c8698',
+          boxShadow: '0 1px 2px rgba(16,24,40,0.35)',
+          pointerEvents: 'none',                           // 装饰：不拦截任何指针事件
+        }}
+      />
 
       {/* 左侧：折叠/展开（− 圆钮，有孩子才显示） */}
       {data.childCount > 0 && (
@@ -181,39 +140,6 @@ export function MindNode({
         title="添加子层级"
       >
         +
-      </button>
-
-      {/* 顶部：十字手柄 = 自定义位置（PointerCapture 拖拽） */}
-      <button
-        type="button"
-        onPointerDown={onHandleDown}
-        onPointerMove={onHandleMove}
-        onPointerUp={onHandleUp}
-        onPointerCancel={onHandleCancel}
-        onMouseDown={(e) => e.stopPropagation()}
-        onTouchStart={(e) => e.stopPropagation()}
-        style={{
-          position: 'absolute',
-          left: '50%',
-          top: -10,
-          transform: 'translateX(-50%)',
-          width: 18,
-          height: 18,
-          borderRadius: '50%',
-          border: '1px solid #d0d5dd',
-          background: '#fff',
-          color: '#475467',
-          fontSize: 10,
-          lineHeight: '16px',
-          textAlign: 'center',
-          padding: 0,
-          cursor: 'move',
-          userSelect: 'none',
-          touchAction: 'none',                            // 触屏拖拽不被滚动劫持
-        }}
-        title="拖动调整位置（子树整体随动）"
-      >
-        ✥
       </button>
 
       {/* 行内编辑覆盖层：按键不冒泡到画布 */}

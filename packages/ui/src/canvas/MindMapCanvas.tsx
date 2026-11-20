@@ -15,11 +15,10 @@ import {
 } from '@xyflow/react';
 import type { EdgeTypes, NodeChange, NodeProps, NodeTypes, OnNodesChange } from '@xyflow/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { produce } from 'immer';
 import {
   DEFAULT_LAYOUT_OPTIONS, defaultIdGen, layout, normalizeOptions,
 } from 'mindflow-core';
-import type { MindDoc, NodeId, PosOffset, TextSize, Theme } from 'mindflow-core';
+import type { MindDoc, NodeId, TextSize, Theme } from 'mindflow-core';
 import { buildFlowGraph } from '../flowModel';
 import type { MindFlowEdge, MindFlowNode } from '../flowModel';
 import { MIND_FONT_FAMILY, createBrowserMeasureText } from '../measure';
@@ -160,33 +159,9 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
     setEditingId(null);
   }, [onDocChange]);
 
-  // —— 十字手柄：自定义位置（预览走本地投影不进文档，松手一次性提交） ——
-  const getBasePos = useCallback((id: NodeId): PosOffset =>
-    findNode(doc.root, id)?.node.pos ?? { dx: 0, dy: 0 }, [doc.root]);
-
-  const onPosPreview = useCallback((id: NodeId, pos: PosOffset) => {
-    const preview = produce(doc, (d) => {
-      const loc = findNode(d.root, id);
-      if (loc) loc.node.pos = pos;
-    });
-    const g = buildFlowGraph(preview, layoutResult, editingId, theme);
-    setNodes(g.nodes);
-    setEdges(g.edges);
-  }, [doc, layoutResult, editingId, theme, setNodes, setEdges]);
-
-  const onPosCommit = useCallback((id: NodeId, pos: PosOffset) => {
-    onDocChange((d) => {
-      const loc = findNode(d.root, id);
-      if (!loc) return;
-      // 拖回原位（0,0 累计）= 清除自定义位置，回归布局
-      loc.node.pos = (pos.dx === 0 && pos.dy === 0) ? undefined : pos;
-    });
-  }, [onDocChange]);
-
-  // —— 拖拽改父级：松手时与其它节点相交 → 挂为其子；否则复位投影原位 ——
-  // 复位必须重建引用：setNodes(同一数组引用) 会被 React 以 Object.is 相等 bail-out 跳过渲染，
-  // 节点滞留在 d3 拖放点（小 zoom 下 d3 位移按 1/zoom 放大，飞出视野 = 视觉消失，
-  // 且文档未变更 → 无撤销入口）。2026-11-20 全面排查修复。
+  // —— 卡片本体拖放（2026-11-20 全面重写：本体 = 唯一拖动入口）——
+  // 复位用（防御路径）：setNodes(同一数组引用) 会被 React 以 Object.is 相等 bail-out
+  // 跳过渲染，必须重建引用。
   const resetProjection = useCallback(() => {
     setNodes(graphRef.current.nodes.map((n) => ({ ...n, position: { ...n.position } })));
     setEdges(graphRef.current.edges.map((e) => ({ ...e })));
@@ -194,27 +169,40 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
 
   const onNodeDragStop = useCallback((_e: MouseEvent | TouchEvent, dragged: MindFlowNode) => {
     const isRoot = dragged.id === doc.root.id;
-    if (isRoot) { resetProjection(); return; }
     const hits = rf.getIntersectingNodes({ id: dragged.id });
-    const target = hits.find((h) =>
+    const target = isRoot ? undefined : hits.find((h) =>
       h.id !== dragged.id && !inSubtree(doc.root, dragged.id, h.id),
     );
-    sendDebug({ k: 'rf-dragstop', id: dragged.id, hits: hits.length, reparent: target ? target.id : null });
-    if (!target) {
-      resetProjection();                                  // 未命中：复位投影（见上方 bail-out 注释）
+    sendDebug({ k: 'rf-dragstop', id: dragged.id, hits: hits.length, reparent: target ? target.id : null, root: isRoot });
+    if (target) {
+      // 拖到另一节点上 = 挂为其子节点（防御顺序：先确认目标存在再摘源）
+      onDocChange((d) => {
+        const to = findNode(d.root, target.id);
+        if (!to) return;
+        const loc = findNode(d.root, dragged.id);
+        if (!loc?.parent) return;
+        loc.parent.children.splice(loc.index, 1);
+        to.node.collapsed = false;
+        to.node.children.push(loc.node);
+      });
+      select(target.id);
       return;
     }
+    // 拖到空白处 = 自由定位（2026-11-20 交互重设计：用户心智模型「放哪就在哪」）：
+    // 以 d3 拖放位移提交 pos（d3 已按 1/zoom 折算位移，此处无需再除 zoom）
+    const proj = graphRef.current.nodes.find((n) => n.id === dragged.id);
+    if (!proj) { resetProjection(); return; }
+    const base = findNode(doc.root, dragged.id)?.node.pos ?? { dx: 0, dy: 0 };
+    const pos = {
+      dx: base.dx + (dragged.position.x - proj.position.x),
+      dy: base.dy + (dragged.position.y - proj.position.y),
+    };
+    sendDebug({ k: 'free-commit', id: dragged.id, dx: pos.dx, dy: pos.dy });
     onDocChange((d) => {
-      // 防御顺序：先确认目标存在，再摘除源节点——目标查不到时绝不删源（否则节点从文档中丢失）
-      const to = findNode(d.root, target.id);
-      if (!to) return;
       const loc = findNode(d.root, dragged.id);
-      if (!loc?.parent) return;
-      loc.parent.children.splice(loc.index, 1);
-      to.node.collapsed = false;
-      to.node.children.push(loc.node);
+      if (!loc) return;
+      loc.node.pos = (pos.dx === 0 && pos.dy === 0) ? undefined : pos;
     });
-    select(target.id);
   }, [doc.root, onDocChange, resetProjection, rf, select]);
 
   // —— 键盘（编辑态由 textarea 自行消化，不冒泡到这里） ——
@@ -234,13 +222,10 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
         onCommitText={commitText}
         onToggleCollapse={toggleCollapse}
         onAddChild={addChild}
-        getBasePos={getBasePos}
-        onPosPreview={onPosPreview}
-        onPosCommit={onPosCommit}
       />
     );
     return { mind: wrapper } as unknown as NodeTypes;
-  }, [addChild, commitText, getBasePos, onPosCommit, onPosPreview, toggleCollapse]);
+  }, [addChild, commitText, toggleCollapse]);
   const edgeTypes = useMemo(() => ({ branch: BranchEdge }) as unknown as EdgeTypes, []);
 
   return (
@@ -248,6 +233,11 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
       style={{ width: '100%', height: '100%', outline: 'none' }}
       tabIndex={0}
       onKeyDown={onKeyDown}
+      onPointerDownCapture={(e) => {
+        // 探针：画布内每一次按下的落点元素（区分 手柄/卡片本体/圆钮/画布空白）
+        const t = e.target as HTMLElement;
+        sendDebug({ k: 'pd', tag: t.tagName, cls: String(t.className).slice(0, 32) });
+      }}
     >
       <ReactFlow
         nodes={nodes}
@@ -259,6 +249,7 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
         onNodeClick={(_e, n) => select(n.id)}
         onPaneClick={() => select(null)}
         onNodeDoubleClick={(_e, n) => { select(n.id); setEditingId(n.id); }}
+        onNodeDragStart={(_e, node) => sendDebug({ k: 'rf-dragstart', id: node.id })}
         onNodeDragStop={onNodeDragStop}
         fitView
         fitViewOptions={{ padding: 0.25 }}
