@@ -292,13 +292,22 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
             }}
             onOpenFileDialog={(id) => {
               void (async () => {
-                const files = await openFileDialogForAttachments();
-                if (files.length === 0) return;
-                const newAtts = await filesToAttachments(files);
-                onDocChange((d) => {
-                  const l = findNode(d.root, id);
-                  if (l) l.node.attachments = [...(l.node.attachments ?? []), ...newAtts];
-                });
+                try {
+                  const files = await openFileDialogForAttachments();
+                  if (files.length === 0) return;
+                  const newAtts = await filesToAttachments(files);
+                  onDocChange((d) => {
+                    const l = findNode(d.root, id);
+                    if (l) l.node.attachments = [...(l.node.attachments ?? []), ...newAtts];
+                  });
+                } catch (err) {
+                  // alert 在 WKWebView 无效 → 用可见错误横幅
+                  const msg = document.createElement('div');
+                  msg.textContent = `📎 ${err instanceof Error ? err.message : String(err)}`;
+                  msg.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;background:#fef2f2;color:#dc2626;padding:10px 20px;border-radius:8px;font-size:13px;border:1px solid #fecaca;max-width:80%;box-shadow:0 4px 12px rgba(0,0,0,0.15)';
+                  document.body.appendChild(msg);
+                  setTimeout(() => msg.remove(), 5000);
+                }
               })();
             }}
           />

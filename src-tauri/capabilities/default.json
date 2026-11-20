@@ -1,14 +1,14 @@
 {
   "identifier": "default",
-  "description": "MindFlow 文件系统 + 对话框权限（含 open/save/read 二进制）",
+  "description": "MindFlow 全量权限（递归作用域 + 二进制读写 + 对话框）",
   "windows": ["main"],
   "permissions": [
     "core:default",
     "core:path:default",
     "fs:default",
-    "fs:scope-home",
-    "fs:allow-home-read",
-    "fs:allow-home-write",
+    "fs:scope-home-recursive",
+    "fs:allow-home-read-recursive",
+    "fs:allow-home-write-recursive",
     "fs:allow-read-dir",
     "fs:allow-read-file",
     "fs:allow-read-text-file",

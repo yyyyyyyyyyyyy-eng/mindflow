@@ -61,12 +61,18 @@ export async function openFileDialogForAttachments(): Promise<File[]> {
     if (!result) return [];
     const paths = Array.isArray(result) ? result : [result];
     const files: File[] = [];
+    const errors: string[] = [];
     for (const p of paths) {
       try {
         const buf = await readFile(p);
         const name = p.split('/').pop() ?? 'file';
         files.push(new File([buf], name, { type: guessMime(name) }));
-      } catch { /* 读取失败的跳过 */ }
+      } catch (err) {
+        errors.push(`${(p.split('/').pop() ?? 'file')}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    if (files.length === 0 && errors.length > 0) {
+      throw new Error(`文件读取失败（${errors.length} 个）：${errors[0]}`);
     }
     return files;
   }

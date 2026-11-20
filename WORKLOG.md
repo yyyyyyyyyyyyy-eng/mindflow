@@ -3,8 +3,8 @@
 > 本文件由 code-review-worklog 技能自动维护：记录每次需求澄清的问答、代码变更、Bug 及修复方案、所有需求及其实现状态。请保留全部结构标题与表格，条目按时间顺序追加。
 
 - **日志创建时间**：2026-11-18 19:46:54
-- **最近更新**：2026-11-20 21:56:28
-- **最新版本**：v0.18.7
+- **最近更新**：2026-11-20 21:59:41
+- **最新版本**：v0.18.8
 ---
 
 ## 需求跟踪
@@ -461,6 +461,12 @@
 - **变更摘要**：修文件对话框不弹：①capabilities 补 dialog:allow-open/dialog:allow-save/fs:allow-read-file（dialog:default 不含 open/save）②附件对话框移除 extensions=['*'] 无效 filter（改为不设 filter 允许全部文件类型）
 - **自查结论**：通过（cargo check 1.22s；tsc 0 错误；build 579ms）
 
+### CHG-045 ｜ 2026-11-20 21:59:41 ｜ 修改
+- **文件**：`src-tauri/capabilities/default.json`、`apps/desktop/src/lib/attachments.ts`、`apps/desktop/src/App.tsx`
+- **需求关联**：REQ-021
+- **变更摘要**：修选完文件后无反应：①fs 权限从 scope-home（仅目录本身）改为 scope-home-recursive + allow-home-read/write-recursive（递归覆盖 Desktop/Documents 等子目录）②readFile 失败不再静默跳过→收集错误并 throw ③App Shell 捕获并显示可见错误横幅（alert 在 WKWebView 无效）
+- **自查结论**：通过（cargo check 0.56s；tsc 0 错误；build 577ms）
+
 ## Bug 记录
 
 <!-- 每个 Bug 由脚本（add-bug）在此节末尾追加一个条目，无论是否已修复都要记录。格式示例：
@@ -565,5 +571,12 @@
 - **原因**：①capabilities 缺 dialog:allow-open/dialog:allow-save/fs:allow-read-file（dialog:default 不含 open/save 操作）②附件对话框 filter extensions=['*'] 在 Tauri 中无效（应省略 filter 或用真实扩展名）
 - **修复方案**：补 capabilities 权限 + 移除 '*' filter
 - **关联变更**：CHG-042
+- **状态**：未修复
+
+### BUG-015 ｜ 2026-11-20 21:58:42
+- **现象**：文件选择器弹出并选择文件后，点 Open 无后续反应（附件未挂上节点）
+- **原因**：待定位——可能在 readFile → File 构造 → filesToAttachments → onDocChange 链条中任一环静默失败
+- **修复方案**：待定位
+- **关联变更**：CHG-043
 - **状态**：未修复
 
