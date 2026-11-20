@@ -118,14 +118,14 @@ describe('applyPosOffsets（自定义位置，2026-11-20）', () => {
     expect(applyPosOffsets(makeDoc(), res)).toBe(res);
   });
 
-  it('子树随动：a.pos 平移 a 与 a1，未动节点保持原位', () => {
+  it('单节点偏移：a.pos 只平移 a，子孙（a1）与未动节点保持原位', () => {
     const doc = makeDoc();
     const a = doc.root.children[0]!;
     a.pos = { dx: 40, dy: -10 };
     const shifted = applyPosOffsets(doc, makeLayout());
 
     expect(shifted.nodeRects.get('a')).toEqual({ x: 220, y: -40, width: 100, height: 40 });
-    expect(shifted.nodeRects.get('a1')).toEqual({ x: 380, y: -60, width: 80, height: 36 });
+    expect(shifted.nodeRects.get('a1')).toEqual({ x: 340, y: -50, width: 80, height: 36 });   // 不随动
     expect(shifted.nodeRects.get('r')).toEqual({ x: 0, y: 0, width: 120, height: 40 });
     expect(shifted.nodeRects.get('b')).toEqual({ x: 180, y: 30, width: 90, height: 40 });
   });
@@ -153,7 +153,8 @@ describe('applyPosOffsets（自定义位置，2026-11-20）', () => {
     const doc = makeDoc();
     doc.root.children[0]!.pos = { dx: 40, dy: -10 };
     const shifted = applyPosOffsets(doc, makeLayout());
-    expect(shifted.bounds).toEqual({ width: 460, height: 130 });
+    // a 移至 220..320（a1 自然位 340..420 仍为最右），minY 取 a 的 -40
+    expect(shifted.bounds).toEqual({ width: 420, height: 120 });
   });
 
   it('buildFlowGraph 集成：节点投影坐标带偏移', () => {

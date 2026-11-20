@@ -60,7 +60,7 @@ export interface DocNode {
   style?: NodeStyle;                   // 缺省继承主题
   icons?: string[];                    // 图标 id，如 'priority-1' 'star'
   labels?: string[];                   // 文字标签
-  pos?: PosOffset;                     // 自定义位置：相对布局原位的偏移，子树整体随动（2026-11-20 增补）
+  pos?: PosOffset;                     // 自定义位置：相对布局原位的偏移，仅作用于该节点本身（2026-11-20 增补，当晚修订取消子树随动）
 }
 
 export interface MindDoc {

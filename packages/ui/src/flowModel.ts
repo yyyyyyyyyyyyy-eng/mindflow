@@ -86,21 +86,20 @@ function num(v: number): number {
 }
 
 /**
- * 收集逐节点累计偏移：own = 自身 pos + 祖先累计；无任何 pos 时返回 null（快速路径）。
+ * 收集逐节点偏移：pos 只作用于节点本身（2026-11-20 按用户口径修订，取消子树随动）；
+ * 无任何 pos 时返回 null（快速路径）。
  */
 function collectOffsets(root: DocNode): Map<NodeId, Offset> | null {
   const map = new Map<NodeId, Offset>();
   let found = false;
-  const walk = (node: DocNode, parent: Offset) => {
-    const own = node.pos;
-    const cur = own
-      ? { dx: parent.dx + own.dx, dy: parent.dy + own.dy }
-      : parent;
-    if (own) found = true;
-    map.set(node.id, cur);
-    for (const child of node.children) walk(child, cur);
+  const walk = (node: DocNode) => {
+    if (node.pos) {
+      found = true;
+      map.set(node.id, { dx: node.pos.dx, dy: node.pos.dy });
+    }
+    for (const child of node.children) walk(child);
   };
-  walk(root, ZERO);
+  walk(root);
   return found ? map : null;
 }
 
@@ -136,7 +135,7 @@ function regenBranch(from: Rect, to: Rect): string {
 
 /**
  * 应用自定义位置偏移（纯函数）：
- * - 节点矩形按「自身 pos + 祖先累计」平移（子树整体随动）；
+ * - 节点矩形按「自身 pos」平移（仅该节点，不带动子孙——2026-11-20 修订）；
  * - 两端偏移均为 0 的连线保留引擎原 path；任一端有偏移的连线用通用锚定贝塞尔重生成；
  * - bounds 按平移后的矩形重算。
  * 文档无任何 pos 时原样返回 res（零开销快速路径）。
