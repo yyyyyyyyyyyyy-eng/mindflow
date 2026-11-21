@@ -162,6 +162,10 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
   const [showGallery, setShowGallery] = useState(false);
 
   const theme = getTheme(doc.theme);
+  // 木质风格：自动切到软木板主题
+  const effectiveTheme = doc.theme === 'corkboard' || doc.theme === 'classic'
+    ? getTheme('corkboard')
+    : theme;
   const selectedLoc = selectedId !== null ? findNode(doc.root, selectedId) : null;
   const selectedNode = selectedLoc?.node ?? null;
 
@@ -225,10 +229,20 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
     { label: 'PNG 图片', title: '2x 高清 PNG', run: () => { void exportPng(doc); } },
   ];
 
+  // 软木板木纹背景（多层 CSS 渐变模拟木纹）
+  const woodBackground = `
+    repeating-linear-gradient(0deg, transparent, transparent 22px, rgba(139,90,43,0.05) 22px, rgba(139,90,43,0.05) 24px),
+    repeating-linear-gradient(90deg, transparent, transparent 80px, rgba(139,90,43,0.03) 80px, rgba(139,90,43,0.03) 82px, transparent 82px, transparent 160px, rgba(139,90,43,0.04) 160px, rgba(139,90,43,0.04) 161px),
+    radial-gradient(ellipse at 25% 75%, rgba(120,80,40,0.08) 0%, transparent 45%),
+    radial-gradient(ellipse at 70% 20%, rgba(120,80,40,0.06) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 50%, rgba(160,130,90,0.06) 0%, transparent 60%),
+    linear-gradient(175deg, #d4b896 0%, #c8a882 30%, #c0a078 60%, #c8a882 100%)
+  `;
+
   return (
     <div
       className="flex h-full flex-col"
-      style={{ background: '#c8a882' }}   // 软木板底色
+      style={{ background: woodBackground }}
     >
       {/* 工具栏 */}
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-gray-200 bg-white px-3">
@@ -282,7 +296,7 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
           <MindMapCanvas
             doc={doc}
             onDocChange={onDocChange}
-            theme={theme}
+            theme={effectiveTheme}
             selectedId={selectedId}
             onSelectedChange={setSelectedId}
             onDropFiles={(id, files) => {

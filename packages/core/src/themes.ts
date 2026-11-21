@@ -62,6 +62,15 @@ export const BUILTIN_THEMES: Theme[] = [
     textColor: '#e8eaed',
     rootStyle: { fill: '#e8eaed', textColor: '#1e2227', shape: 'rounded-rect', fontWeight: 'bold' },
   },
+  {
+    id: 'corkboard',
+    name: '软木板',
+    background: '#c8a882',
+    nodeFillByLevel: ['#f5e6c8', '#e8cfa8', '#d4b8a0', '#c0a888'],
+    branchColorByLevel: ['#8d6e63', '#8d6e63', '#795548', '#6d4c41'],
+    textColor: '#3e2723',
+    rootStyle: { fill: '#d7ccc8', textColor: '#3e2723', shape: 'rounded-rect', fontWeight: 'bold' },
+  },
 ];
 
 /** 按 id 取主题；未知 id 回退经典主题（防御式，文档 theme 字段可能被外部写入） */

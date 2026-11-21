@@ -3,8 +3,8 @@
 > 本文件由 code-review-worklog 技能自动维护：记录每次需求澄清的问答、代码变更、Bug 及修复方案、所有需求及其实现状态。请保留全部结构标题与表格，条目按时间顺序追加。
 
 - **日志创建时间**：2026-11-18 19:46:54
-- **最近更新**：2026-11-21 16:55:29
-- **最新版本**：v0.20.0
+- **最近更新**：2026-11-21 17:18:36
+- **最新版本**：v0.20.1
 ---
 
 ## 需求跟踪
@@ -493,6 +493,12 @@
 - **变更摘要**：木质软板+明信片风格预设：CORKBOARD_APPEARANCE（红头图钉 pin / 牛皮纸卡片 6px 圆角暖棕投影 / 麻绳三层棕色+纤维纹 / 软木板底色 #c8a882）+ CORKBOARD_NODE_COLORS（逐级牛皮纸→深咖啡配色）——App Shell 已接入实测
 - **自查结论**：通过（tsc 0 错误；build 571ms；浏览器实测：背景 #c8a882 ✓ 卡片边框/圆角/投影全部符合）
 
+### CHG-050 ｜ 2026-11-21 17:18:36 ｜ 修改
+- **文件**：`packages/core/src/themes.ts`、`packages/core/test/themes.test.ts`、`CONTRACT.md`、`apps/desktop/src/App.tsx`
+- **需求关联**：REQ-023
+- **变更摘要**：木质风格补完：①注册 corkboard 主题（牛皮纸→深咖啡逐级配色，soft brown 根，暖棕连线）②App Shell effectiveTheme 切到 corkboard ③背景改多层 CSS 渐变木纹（repeating horizontal/vertical grain + radial knots + warm base）——修卡片视觉未变（填充色来自 theme 不来自 appearance）和背景纯色无质感
+- **自查结论**：通过（119 用例全绿；tsc 0；build 573ms；浏览器实测：卡片 #d7ccc8 暖棕 ✓ 背景 repeating-linear-gradient 木纹 ✓ 绳米黄 ✓）
+
 ## Bug 记录
 
 <!-- 每个 Bug 由脚本（add-bug）在此节末尾追加一个条目，无论是否已修复都要记录。格式示例：
@@ -611,5 +617,12 @@
 - **原因**：待定位——可能与多文件循环中某个 readFile 超时/失败有关，或 WKWebView File 构造/大小限制
 - **修复方案**：待定位
 - **关联变更**：CHG-045
+- **状态**：未修复
+
+### BUG-017 ｜ 2026-11-21 17:17:26
+- **现象**：木质风格卡片外观未生效（浏览器 getComputedStyle 确认值已变但用户视觉感知不变——可能主题色覆盖了外观）+ 背景质感差（纯色 #c8a882 缺木纹理）
+- **原因**：①主题 getTheme(doc.theme) 返回 nodeFillByLevel 蓝色系，卡片 fill 蓝色覆盖了 appearance 的 border/shadow 效果 ②背景只是纯色 CSS，没有木纹质感
+- **修复方案**：①接入 CORKBOARD_NODE_COLORS 作为主题 ②背景加 CSS 木纹渐变纹理
+- **关联变更**：CHG-049
 - **状态**：未修复
 

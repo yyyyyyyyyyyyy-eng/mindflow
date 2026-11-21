@@ -189,7 +189,7 @@ export interface Theme {
 }
 ```
 
-内置主题 id（首批 6 个）：`classic`、`snow-ink`（墨雪）、`sunset`、`forest`、`ocean`、`mono-dark`。
+内置主题 id（首批 7 个）：`classic`、`snow-ink`（墨雪）、`sunset`、`forest`、`ocean`、`mono-dark`、`corkboard`（软木板）。
 
 ---
 

@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { BUILTIN_THEMES, getTheme } from '../src/themes';
 
-const CONTRACT_IDS = ['classic', 'snow-ink', 'sunset', 'forest', 'ocean', 'mono-dark'];
+const CONTRACT_IDS = ['classic', 'snow-ink', 'sunset', 'forest', 'ocean', 'mono-dark', 'corkboard'];
 
 describe('内置主题', () => {
   it('数量与 id 与契约 §5 完全一致', () => {
