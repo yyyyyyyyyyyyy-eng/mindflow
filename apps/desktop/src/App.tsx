@@ -22,7 +22,8 @@ import { filesToAttachments } from './lib/attachments';
 // 注意：编辑器工具栏的「导入」已移除（用户口径：文件拖入 + 回形针替代）；主页导入保留
 import { exportMflow, exportMarkdown, exportOpml, exportPng } from './lib/exporters';
 import { localStorageAdapter } from './lib/localStorageAdapter';
-import { tauriFsAdapter } from './lib/tauriFsAdapter';
+// tauriFsAdapter 暂不使用（探测降级造成数据孤岛——保存走 A、读取走 B），调通后恢复
+// import { tauriFsAdapter } from './lib/tauriFsAdapter';
 
 const STRUCTURES: Array<{ value: StructureType; label: string }> = [
   { value: 'mindmap', label: '思维导图' },
@@ -43,22 +44,8 @@ type View = { kind: 'home' } | { kind: 'editor'; service: DocumentService; docId
 export function App() {
   const [view, setView] = useState<View>({ kind: 'home' });
   const [homeDocs, setHomeDocs] = useState<MindDoc[]>([]);
-  /** 运行时探测的存储适配器：初始永远 localStorage（保证按钮可用），Tauri fs 探测成功后升级 */
-  const [adapter, setAdapter] = useState<StorageAdapter>(localStorageAdapter);
-
-  // 探测：Tauri 环境下试跑一次 save+list 往返，成功才升级 tauriFsAdapter
-  useEffect(() => {
-    if (!('__TAURI_INTERNALS__' in window || '__TAURI__' in window)) return;
-    const probe = async () => {
-      try {
-        const test = { formatVersion: 1 as const, id: '__probe__', title: '', structure: 'mindmap' as const, theme: 'classic', root: { id: '__probe_root__', text: '', children: [] }, createdAt: '', updatedAt: '' };
-        await tauriFsAdapter.save(test);
-        await tauriFsAdapter.delete('__probe__');
-        setAdapter(tauriFsAdapter);                         // 真正读写删成功才升级
-      } catch { /* 留在 localStorage */ }
-    };
-    void probe();
-  }, []);
+  /** 存储适配器：暂时固定 localStorage（保证读写一致；Tauri fs 调通后再加探测升级） */
+  const [adapter] = useState<StorageAdapter>(localStorageAdapter);
 
   const refreshHome = useCallback(async () => {
     const metas = await adapter.list();
