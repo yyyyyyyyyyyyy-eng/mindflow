@@ -17,6 +17,14 @@ export interface InspectorProps {
   onDelete?: (id: NodeId) => void;
   /** 文件拖入/回形针导入（多文件/多类型） */
   onDropFiles?: (id: NodeId, files: File[]) => void;
+  /** 全局外观：卡片背景图上传/清除 */
+  onSetCardBg?: (dataUri: string | undefined) => void;
+  /** 全局外观：画布背景图上传/清除 */
+  onSetCanvasBg?: (dataUri: string | undefined) => void;
+  /** 当前卡片背景图 */
+  cardBg?: string;
+  /** 当前画布背景图 */
+  canvasBg?: string;
 }
 
 const SHAPES: Array<{ value: ShapeKind; label: string }> = [
@@ -29,7 +37,7 @@ const SHAPES: Array<{ value: ShapeKind; label: string }> = [
 
 const PRIORITIES = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 
-export function Inspector({ node, isRoot = false, onNodeChange, onDelete, onDropFiles }: InspectorProps) {
+export function Inspector({ node, isRoot = false, onNodeChange, onDelete, onDropFiles, onSetCardBg, onSetCanvasBg, cardBg, canvasBg }: InspectorProps) {
   if (node === null) {
     return (
       <div style={{ padding: 16, color: '#667085', fontSize: 13 }}>
@@ -256,6 +264,65 @@ export function Inspector({ node, isRoot = false, onNodeChange, onDelete, onDrop
         >
           删除节点
         </button>
+      )}
+
+      {/* 全局外观：卡片/画布背景图（始终显示在 Inspector 底部） */}
+      {(onSetCardBg || onSetCanvasBg) && (
+        <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid #f2f4f7' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#98a2b3', display: 'block', marginBottom: 6 }}>外观设置</span>
+
+          {onSetCardBg && (
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 6 }}>
+              <label style={{
+                flex: 1, cursor: 'pointer', textAlign: 'center', fontSize: 12,
+                border: cardBg ? '1px solid #4f7cf7' : '1px dashed #d0d5dd',
+                borderRadius: 6, padding: '6px 4px', color: '#475467',
+              }}>
+                {cardBg ? '🖼 卡片背景已设' : '🖼 卡片背景图'}
+                <input type="file" accept="image/*" style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = '';
+                    if (!f || !f.type.startsWith('image/') || f.size > 500 * 1024) return;
+                    const reader = new FileReader();
+                    reader.onload = () => { if (typeof reader.result === 'string') onSetCardBg(reader.result); };
+                    reader.readAsDataURL(f);
+                  }}
+                />
+              </label>
+              {cardBg && (
+                <button type="button" onClick={() => onSetCardBg(undefined)}
+                  style={{ border: 0, background: 'none', cursor: 'pointer', color: '#98a2b3', fontSize: 12 }}>✕</button>
+              )}
+            </div>
+          )}
+
+          {onSetCanvasBg && (
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <label style={{
+                flex: 1, cursor: 'pointer', textAlign: 'center', fontSize: 12,
+                border: canvasBg ? '1px solid #4f7cf7' : '1px dashed #d0d5dd',
+                borderRadius: 6, padding: '6px 4px', color: '#475467',
+              }}>
+                {canvasBg ? '🖼 画布背景已设' : '🖼 画布背景图'}
+                <input type="file" accept="image/*" style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = '';
+                    if (!f || !f.type.startsWith('image/') || f.size > 1024 * 1024) return;
+                    const reader = new FileReader();
+                    reader.onload = () => { if (typeof reader.result === 'string') onSetCanvasBg(reader.result); };
+                    reader.readAsDataURL(f);
+                  }}
+                />
+              </label>
+              {canvasBg && (
+                <button type="button" onClick={() => onSetCanvasBg(undefined)}
+                  style={{ border: 0, background: 'none', cursor: 'pointer', color: '#98a2b3', fontSize: 12 }}>✕</button>
+              )}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

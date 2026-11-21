@@ -31,6 +31,8 @@ export interface CardStyle {
   shadow: string;
   /** 卡片边框（选中时自动替换为蓝色 2px） */
   border: string;
+  /** 自定义卡片背景图（data URI；设置后覆盖主题填充色） */
+  backgroundImage?: string;
   /** 钉子 */
   pin: PinStyle;
   /** 左右圆钮 */
@@ -72,6 +74,8 @@ export interface BackgroundStyle {
   gap: number;
   /** 点/线大小 px */
   size?: number;
+  /** 自定义画布背景图（data URI；设置后覆盖 pattern） */
+  image?: string;
 }
 
 // —— 整体 ——
@@ -90,10 +94,10 @@ export const DEFAULT_APPEARANCE: AppearanceConfig = {
     shadow: '0 3px 8px rgba(16,24,40,0.16), 0 1px 2px rgba(16,24,40,0.10)',
     border: '1px solid rgba(16,24,40,0.08)',
     pin: {
-      size: 12,
-      gradient: 'radial-gradient(circle at 30% 30%, #ffffff 0%, #d5dae3 45%, #8a94a6 100%)',
-      borderColor: '#7c8698',
-      needle: 'linear-gradient(#8a94a6, #5b6474)',
+      size: 8,
+      gradient: 'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.6) 0%, rgba(200,205,210,0.4) 50%, rgba(140,148,160,0.3) 100%)',
+      borderColor: 'rgba(140,148,160,0.3)',
+      needle: 'linear-gradient(rgba(160,168,180,0.4), rgba(120,128,140,0.3))',
     },
     buttons: {
       size: 18,

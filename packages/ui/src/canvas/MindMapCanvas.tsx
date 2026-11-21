@@ -282,7 +282,12 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
         }}
         onDragOver={(e) => { if (e.dataTransfer?.types?.includes('Files')) e.preventDefault(); }}
       >
-      {app.background.pattern !== 'none' && (
+      {app.background.image ? (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: -1,
+          background: `url(${app.background.image}) center/cover no-repeat`,
+        }} />
+      ) : app.background.pattern !== 'none' && (
         <Background
           variant={app.background.pattern === 'dots' ? BackgroundVariant.Dots : BackgroundVariant.Cross}
           gap={app.background.gap}

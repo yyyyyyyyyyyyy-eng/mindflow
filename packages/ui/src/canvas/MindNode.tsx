@@ -61,13 +61,17 @@ export function MindNode({
   id, data, selected, onToggleCollapse, onAddChild, onDropFiles, appearance,
 }: MindNodeProps) {
   const ac = appearance.card;
+  const bgStyle = ac.backgroundImage
+    ? `${data.shape === 'underline' ? 'transparent' : `url(${ac.backgroundImage}) center/cover`}`
+    : (data.shape === 'underline' ? 'transparent' : data.fill);
+
   const box: React.CSSProperties = {
     width: '100%',
     height: '100%',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: data.shape === 'underline' ? 'transparent' : data.fill,
+    background: bgStyle,
     color: data.textColor,
     fontFamily: 'var(--mind-font)',
     fontSize: data.fontSize,

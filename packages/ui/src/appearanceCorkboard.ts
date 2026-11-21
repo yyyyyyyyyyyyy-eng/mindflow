@@ -13,11 +13,11 @@ export const CORKBOARD_APPEARANCE: AppearanceConfig = {
     shadow: '0 4px 12px rgba(101,67,33,0.25), 0 2px 4px rgba(101,67,33,0.15)',
     border: '1px solid rgba(139,90,43,0.3)',
     pin: {
-      size: 14,
-      // 红头图钉
-      gradient: 'radial-gradient(circle at 35% 30%, #ff9e80 0%, #e53935 40%, #b71c1c 100%)',
-      borderColor: '#8b0000',
-      needle: 'linear-gradient(#b0bec5, #78909c)',
+      size: 9,
+      // 红头图钉（弱化：半透明、缩小）
+      gradient: 'radial-gradient(circle at 35% 30%, rgba(255,158,128,0.5) 0%, rgba(229,57,53,0.4) 40%, rgba(183,28,28,0.3) 100%)',
+      borderColor: 'rgba(139,0,0,0.3)',
+      needle: 'linear-gradient(rgba(176,190,197,0.4), rgba(120,144,156,0.3))',
     },
     buttons: {
       size: 20,

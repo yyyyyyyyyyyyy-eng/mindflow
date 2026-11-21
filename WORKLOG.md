@@ -3,8 +3,8 @@
 > 本文件由 code-review-worklog 技能自动维护：记录每次需求澄清的问答、代码变更、Bug 及修复方案、所有需求及其实现状态。请保留全部结构标题与表格，条目按时间顺序追加。
 
 - **日志创建时间**：2026-11-18 19:46:54
-- **最近更新**：2026-11-21 17:32:28
-- **最新版本**：v0.22.0
+- **最近更新**：2026-11-21 17:34:46
+- **最新版本**：v0.23.0
 ---
 
 ## 需求跟踪
@@ -38,6 +38,7 @@
 | REQ-025 | ①画布节点不再双击进入行内编辑（仅选中高亮）②编辑一律走大纲或 Inspector③删除节点底部的回形针📎按钮（文件拖拽保留） | 2026-11-21 17:26:58 | 已完成 | 画布节点不再行内编辑；回形针移除；文件拖拽保留 |
 | REQ-026 | 更新流程固化：每次代码推送后自动重装 MindFlow.app（删旧→build→ditto→open） | 2026-11-21 17:29:55 | 已完成 | 以后每次 git push 后跑 ./scripts/build-app.sh 即自动删旧装新 |
 | REQ-027 | ①全局快捷键：⌘Z 撤销 / ⇧⌘Z 重做 / ⌘S 手动保存（window 级监听，任何位置生效）②保存指示器：● 编辑中 → ✓ 已保存（与 2s 防抖同步） | 2026-11-21 17:31:46 | 已完成 | 快捷键+指示器已上线 |
+| REQ-028 | ①自定义卡片背景图（用户上传图片 → CSS background-image 填充卡片）②自定义画布背景图（用户上传图片 → 整体画布背景）③钉子弱化（缩小、降透明度、颜色随卡片融合） | 2026-11-21 17:33:21 | 已完成 | 自定义背景图 + 钉子弱化已上线 |
 
 <!--
   状态取值：待实现 / 进行中 / 已完成 / 已取消
@@ -526,6 +527,12 @@
 - **需求关联**：REQ-027
 - **变更摘要**：全局快捷键 + 保存指示器：①⌘Z 撤销 / ⇧⌘Z 重做 / ⌘S 手动保存（window 级 keydown 监听，大纲/画布/Inspector 任何位置生效）②工具栏保存指示（● 编辑中 → ✓ 已保存，与 2s 防抖自动保存同步）③清理残留 onOpenFileDialog prop（上轮 REQ-025 遗漏）
 - **自查结论**：通过（tsc 0 错误；build 603ms；.app 已部署并启动）
+
+### CHG-055 ｜ 2026-11-21 17:34:46 ｜ 新增
+- **文件**：`packages/ui/src/{appearance.ts`、`appearanceCorkboard.ts`、`canvas/MindNode.tsx`、`canvas/MindMapCanvas.tsx`、`inspector/Inspector.tsx}`、`apps/desktop/src/App.tsx`
+- **需求关联**：REQ-028
+- **变更摘要**：①CardStyle 增 backgroundImage + BackgroundStyle 增 image（data URI）②MindNode 支持 backgroundImage 作为卡片 CSS background（覆盖主题填充色）③MindMapCanvas 支持 background.image 作为画布背景（覆盖 pattern）④Inspector 底部增「外观设置」区：卡片背景图 + 画布背景图 上传/预览/清除（✕）⑤钉子弱化：size 12→8 + 半透明渐变（DEFAULT）+ size 14→9 + 半透明红头（CORKBOARD）⑥App Shell 用 useMemo 合成 corkboard + 用户自定义背景图
+- **自查结论**：通过（tsc 双包 0；build 611ms；.app 已部署并启动）
 
 ## Bug 记录
 

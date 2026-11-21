@@ -5,7 +5,7 @@
 // ============================================================================
 
 import {
-  useCallback, useEffect, useState, useSyncExternalStore,
+  useCallback, useEffect, useMemo, useState, useSyncExternalStore,
 } from 'react';
 import {
   BUILTIN_THEMES, createDocumentService, getTheme,
@@ -194,6 +194,17 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
     };
   }, []);
 
+  // 全局外观：卡片/画布自定义背景图（data URI）
+  const [cardBg, setCardBg] = useState<string | undefined>(undefined);
+  const [canvasBg, setCanvasBg] = useState<string | undefined>(undefined);
+
+  // 合成当前外观（corkboard 基底 + 用户自定义背景图覆盖）
+  const currentAppearance = useMemo(() => ({
+    ...CORKBOARD_APPEARANCE,
+    card: { ...CORKBOARD_APPEARANCE.card, backgroundImage: cardBg },
+    background: { ...CORKBOARD_APPEARANCE.background, image: canvasBg },
+  }), [cardBg, canvasBg]);
+
   // 全局快捷键：⌘Z / ⇧⌘Z / ⌘S（window 级监听，大纲/画布/Inspector 任何位置生效）
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -341,7 +352,7 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
                 });
               })();
             }}
-            appearance={CORKBOARD_APPEARANCE}
+            appearance={currentAppearance}
           />
         </main>
 
@@ -375,6 +386,10 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
                 patchNode(id, { attachments: [...(selectedNode?.attachments ?? []), ...newAtts] });
               })();
             }}
+            onSetCardBg={setCardBg}
+            onSetCanvasBg={setCanvasBg}
+            cardBg={cardBg}
+            canvasBg={canvasBg}
           />
         </aside>
       </div>
