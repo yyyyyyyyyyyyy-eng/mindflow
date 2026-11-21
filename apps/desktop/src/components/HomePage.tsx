@@ -51,7 +51,7 @@ export default function HomePage({ docs, onCreateBlank, onImportFile, onImportDo
             onClick={onCreateBlank}
             className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
           >
-            ＋ 创建空白导图
+            创建空白导图
           </button>
           <button
             type="button"

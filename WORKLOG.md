@@ -3,8 +3,8 @@
 > 本文件由 code-review-worklog 技能自动维护：记录每次需求澄清的问答、代码变更、Bug 及修复方案、所有需求及其实现状态。请保留全部结构标题与表格，条目按时间顺序追加。
 
 - **日志创建时间**：2026-11-18 19:46:54
-- **最近更新**：2026-11-21 17:42:31
-- **最新版本**：v0.23.4
+- **最近更新**：2026-11-21 17:45:45
+- **最新版本**：v0.23.5
 ---
 
 ## 需求跟踪
@@ -558,6 +558,12 @@
 - **需求关联**：REQ-028
 - **变更摘要**：主题面板只保留画布背景图上传（用户口径：主题中不提供编辑卡片的选项）；移除卡片背景图状态 cardBg/setCardBg 和 appearance.card.backgroundImage 注入——卡片背景功能整体下线
 - **自查结论**：通过（tsc 0；build 603ms；.app 已部署并启动）
+
+### CHG-060 ｜ 2026-11-21 17:45:45 ｜ 修改
+- **文件**：`apps/desktop/src/{App.tsx`、`components/HomePage.tsx}`、`packages/ui/src/{canvas/MindNode.tsx`、`outline/OutlineView.tsx`、`inspector/Inspector.tsx}`
+- **需求关联**：REQ-028
+- **变更摘要**：去彩色 emoji：删除 📎🖼🎨📁（彩色图形 emoji），保留极简文字符号（‹ ↶ ↷ ✓ ● ☰ ▾ ＋ ▤ ✕ ▸）——符合极简风格，视觉零干扰
+- **自查结论**：通过（彩色 emoji 残留 0；极简符号 8 处保留；tsc 0；build 573ms；.app 已部署）
 
 ## Bug 记录
 

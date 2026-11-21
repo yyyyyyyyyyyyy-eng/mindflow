@@ -101,7 +101,7 @@ export function Inspector({ node, isRoot = false, onNodeChange, onDelete, onDrop
               {a.isImage ? (
                 <img src={a.data} alt={a.name} style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4 }} />
               ) : (
-                <span style={{ fontSize: 18 }}>📎</span>
+                <span style={{ fontSize: 18 }}></span>
               )}
               <span style={{ flex: 1, fontSize: 11, color: '#475467', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
               <button
@@ -121,7 +121,7 @@ export function Inspector({ node, isRoot = false, onNodeChange, onDelete, onDrop
             border: '1px dashed #d0d5dd', borderRadius: 8, padding: '10px 8px',
             display: 'block',
           }}>
-            📎 添加文件（可多选）
+            添加文件（可多选）
             <input
               type="file"
               multiple
@@ -278,7 +278,7 @@ export function Inspector({ node, isRoot = false, onNodeChange, onDelete, onDrop
                 border: cardBg ? '1px solid #4f7cf7' : '1px dashed #d0d5dd',
                 borderRadius: 6, padding: '6px 4px', color: '#475467',
               }}>
-                {cardBg ? '🖼 卡片背景已设' : '🖼 卡片背景图'}
+                {cardBg ? '卡片背景已设' : '卡片背景图'}
                 <input type="file" accept="image/*" style={{ display: 'none' }}
                   onChange={(e) => {
                     const f = e.target.files?.[0];
@@ -304,7 +304,7 @@ export function Inspector({ node, isRoot = false, onNodeChange, onDelete, onDrop
                 border: canvasBg ? '1px solid #4f7cf7' : '1px dashed #d0d5dd',
                 borderRadius: 6, padding: '6px 4px', color: '#475467',
               }}>
-                {canvasBg ? '🖼 画布背景已设' : '🖼 画布背景图'}
+                {canvasBg ? '画布背景已设' : '画布背景图'}
                 <input type="file" accept="image/*" style={{ display: 'none' }}
                   onChange={(e) => {
                     const f = e.target.files?.[0];

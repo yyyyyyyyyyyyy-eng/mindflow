@@ -282,21 +282,21 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
     >
       {/* 工具栏 */}
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-gray-200 bg-white px-3">
-        <button type="button" className={btn} onClick={onExitHome} title="返回主界面">‹ 主页</button>
+        <button type="button" className={btn} onClick={onExitHome} title="返回主界面">返回</button>
         <span className="mx-1 text-sm font-bold tracking-wide">MindFlow</span>
         <span className="max-w-48 truncate text-sm text-gray-500">{doc.title || '未命名'}</span>
         <button type="button" className={btn} disabled={!service.canUndo()} onClick={() => {
           dbg({ k: 'undo-click', canUndo: service.canUndo() });
           const ok = service.undo();
           dbg({ k: 'undo-result', ok });
-        }} title="撤销 (⌘Z)">↶ 撤销</button>
+        }} title="撤销 (⌘Z)">撤销</button>
         <button type="button" className={btn} disabled={!service.canRedo()} onClick={() => {
           dbg({ k: 'redo-click', ok: service.redo() });
-        }} title="重做 (⇧⌘Z)">↷ 重做</button>
+        }} title="重做 (⇧⌘Z)">重做</button>
         <span className="mx-1 h-6 w-px bg-gray-200" />
         <span
           className={`text-[11px] ${saved ? 'text-green-600' : 'text-orange-500'}`}
-          title={saved ? '已保存' : '编辑中（2 秒后自动保存）'}
+          title={saved ? '✓ 已保存' : '编辑中（2 秒后自动保存）'}
         >
           {saved ? '✓ 已保存' : '● 编辑中'}
         </span>
@@ -309,10 +309,10 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
           {STRUCTURES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
         <button type="button" className={btn} onClick={() => setShowGallery((v) => !v)}>主题</button>
-        <button type="button" className={`${btn} ${showOutline ? 'ring-1 ring-blue-400' : ''}`} onClick={() => setShowOutline((v) => !v)}>☰ 大纲</button>
+        <button type="button" className={`${btn} ${showOutline ? 'ring-1 ring-blue-400' : ''}`} onClick={() => setShowOutline((v) => !v)}>大纲</button>
         {/* 导出下拉 */}
         <div className="relative">
-          <button type="button" className={btn} onClick={() => setShowExportMenu((v) => !v)} title="导出">导出 ▾</button>
+          <button type="button" className={btn} onClick={() => setShowExportMenu((v) => !v)} title="导出 ▾">导出</button>
           {showExportMenu && (
             <div className="absolute right-0 top-full z-50 mt-1 min-w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
               {exportActions.map((a) => (
@@ -329,7 +329,7 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
           )}
         </div>
         <span className="flex-1" />
-        <button type="button" className={btn} onClick={onNewDoc} title="新建一张空白导图">＋ 新建</button>
+        <button type="button" className={btn} onClick={onNewDoc} title="新建一张空白导图">新建</button>
       </header>
 
       {/* 主体 */}
@@ -382,7 +382,7 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
                     border: canvasBg ? '1px solid #4f7cf7' : '1px dashed #d0d5dd',
                     borderRadius: 6, padding: '6px 4px', color: '#475467',
                   }}>
-                    {canvasBg ? '🖼 画布背景已设' : '🖼 上传画布背景图'}
+                    {canvasBg ? '画布背景已设' : '上传画布背景图'}
                     <input type="file" accept="image/*" style={{ display: 'none' }}
                       onChange={(e) => {
                         const f = e.target.files?.[0];
@@ -396,7 +396,7 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
                   </label>
                   {canvasBg && (
                     <button type="button" onClick={() => setCanvasBg(undefined)}
-                      style={{ border: 0, background: 'none', cursor: 'pointer', color: '#98a2b3', fontSize: 12 }}>✕</button>
+                      style={{ border: 0, background: 'none', cursor: 'pointer', color: '#98a2b3', fontSize: 12 }}>移除</button>
                   )}
                 </div>
               </div>
