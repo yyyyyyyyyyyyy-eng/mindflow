@@ -73,8 +73,8 @@ export function StringEdge({ id, data, sourceX, sourceY, targetX, targetY, appea
   const bX = data?.anchorB !== undefined ? data.anchorB.x + dBX : targetX;
   const bY = data?.anchorB !== undefined ? data.anchorB.y + dBY : (typeof targetY === 'number' ? targetY - 3 : undefined);
 
-  // 钉点变更（拖动/重布局）：更新锚点并踢醒模拟；<0.5px 的亚像素抖动走死区（不扰绳）。
-  // 主轴/主脊（data.axis）：张紧直线——锚点即两端点，不做悬垂物理，拖动时直线跟随。
+  // 钉点变更：拖动中渲染简单曲线（零物理=零闪烁），停止 150ms 后切回物理模拟。
+  // 死区：<0.5px 的亚像素抖动直接忽略。
   useEffect(() => {
     if (aX === undefined || aY === undefined || bX === undefined || bY === undefined) return;
     if (data?.axis === true) {
@@ -87,24 +87,24 @@ export function StringEdge({ id, data, sourceX, sourceY, targetX, targetY, appea
       && Math.abs(prev.bx - bX) < 0.5 && Math.abs(prev.by - bY) < 0.5) {
       return;                                             // 死区：提交/重渲染的微抖不进物理
     }
-    if (prev !== null) {
-      // 探针：真实钉点变更（死区外）——排障「松手全体绳晃」用
-      sendDebugEdge('pin-change', {
-        id,
-        dax: Math.round((aX - prev.ax) * 10) / 10,
-        day: Math.round((aY - prev.ay) * 10) / 10,
-        dbx: Math.round((bX - prev.bx) * 10) / 10,
-        dby: Math.round((bY - prev.by) * 10) / 10,
-      });
-    }
     lastPins.current = { ax: aX, ay: aY, bx: bX, by: bY };
-    if (ropeRef.current === null) {
-      ropeRef.current = new Rope({ x: aX, y: aY }, { x: bX, y: bY });
-    } else {
-      ropeRef.current.setEndpoints({ x: aX, y: aY }, { x: bX, y: bY });
-    }
-    writeAll(ropeRef.current.pathD());
-    ensureLoop();
+
+    // 拖动中：简单贝塞尔（中点 + 轻微下垂），零物理开销，跟随零延迟
+    stopLoop();                                           // 停掉可能还在跑的物理循环
+    writeAll(`M ${aX} ${aY} Q ${(aX + bX) / 2} ${(aY + bY) / 2 + 6} ${bX} ${bY}`);
+
+    // 端点稳定 150ms 后切回物理模拟（cleanup 在下次端点变化时取消此定时器）
+    const t = setTimeout(() => {
+      if (ropeRef.current === null) {
+        ropeRef.current = new Rope({ x: aX, y: aY }, { x: bX, y: bY });
+      } else {
+        ropeRef.current.setEndpoints({ x: aX, y: aY }, { x: bX, y: bY });
+      }
+      writeAll(ropeRef.current.pathD());
+      ensureLoop();
+    }, 150);
+
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aX, aY, bX, bY]);
 
