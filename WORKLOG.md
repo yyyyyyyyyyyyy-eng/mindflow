@@ -3,8 +3,8 @@
 > 本文件由 code-review-worklog 技能自动维护：记录每次需求澄清的问答、代码变更、Bug 及修复方案、所有需求及其实现状态。请保留全部结构标题与表格，条目按时间顺序追加。
 
 - **日志创建时间**：2026-11-18 19:46:54
-- **最近更新**：2026-11-21 16:53:04
-- **最新版本**：v0.19.0
+- **最近更新**：2026-11-21 16:55:29
+- **最新版本**：v0.20.0
 ---
 
 ## 需求跟踪
@@ -33,6 +33,7 @@
 | REQ-020 | 大纲文本实时同步画布：输入框从 defaultValue+onBlur 改为受控 value+onChange（打字即更新文档，画布实时重布局） | 2026-11-20 21:47:23 | 已完成 | 大纲→画布实时同步实测通过 |
 | REQ-021 | Bug 修复：①编辑器内回形针📎选文件后节点内容无变化 ②画布拖文件无效 ③大纲↔画布文本编辑实时同步（上轮只修了大纲→画布单向，画布行内编辑→大纲方向未验证） | 2026-11-20 21:50:07 | 已完成 | 图片压缩 + localStorage quota 守卫落地；多文件实测待用户复验 |
 | REQ-022 | 外观接口化：CardStyle / RopeStyle / BackgroundStyle 全部参数化，MindMapCanvas 增 appearance 可选 prop，默认值即当前视觉 | 2026-11-21 16:50:39 | 已完成 | 外观三层接口化完成；换肤只需传 appearance prop |
+| REQ-023 | 木质软木板 + 明信片风格外观预设：木纹背景、牛皮纸卡片、麻绳质感、复古配色 | 2026-11-21 16:54:30 | 已完成 | 木质软板风格上线 |
 
 <!--
   状态取值：待实现 / 进行中 / 已完成 / 已取消
@@ -485,6 +486,12 @@
 - **需求关联**：REQ-022
 - **变更摘要**：外观接口化：AppearanceConfig（CardStyle + RopeStyle + BackgroundStyle）全部参数化，MindMapCanvas 增 appearance 可选 prop，MindNode/StringEdge/Background 从接口读取（不传=DEFAULT_APPEARANCE 完全一致）；RopeStyle.layers 支持函数型 stroke=(themeColor)=>color；mergeAppearance 浅合并
 - **自查结论**：通过（36 用例全绿；tsc 双包 0 错误；build 665ms）
+
+### CHG-049 ｜ 2026-11-21 16:55:29 ｜ 新增
+- **文件**：`packages/ui/src/appearanceCorkboard.ts`、`packages/ui/src/index.ts`、`apps/desktop/src/App.tsx`
+- **需求关联**：REQ-023
+- **变更摘要**：木质软板+明信片风格预设：CORKBOARD_APPEARANCE（红头图钉 pin / 牛皮纸卡片 6px 圆角暖棕投影 / 麻绳三层棕色+纤维纹 / 软木板底色 #c8a882）+ CORKBOARD_NODE_COLORS（逐级牛皮纸→深咖啡配色）——App Shell 已接入实测
+- **自查结论**：通过（tsc 0 错误；build 571ms；浏览器实测：背景 #c8a882 ✓ 卡片边框/圆角/投影全部符合）
 
 ## Bug 记录
 

@@ -14,6 +14,7 @@ import type { DocumentService, MindDoc, NodeId, StorageAdapter, StructureType } 
 import {
   Inspector, MindMapCanvas, OutlineView, ThemeGallery, findNode,
 } from 'mindflow-ui';
+import { CORKBOARD_APPEARANCE } from 'mindflow-ui';
 import HomePage from './components/HomePage';
 import { createEmptyDoc } from './lib/emptyDoc';
 import { parseImportFile } from './lib/importFile';
@@ -225,7 +226,10 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
   ];
 
   return (
-    <div className="flex h-full flex-col bg-gray-50">
+    <div
+      className="flex h-full flex-col"
+      style={{ background: '#c8a882' }}   // 软木板底色
+    >
       {/* 工具栏 */}
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-gray-200 bg-white px-3">
         <button type="button" className={btn} onClick={onExitHome} title="返回主界面">‹ 主页</button>
@@ -301,7 +305,6 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
                     if (l) l.node.attachments = [...(l.node.attachments ?? []), ...newAtts];
                   });
                 } catch (err) {
-                  // alert 在 WKWebView 无效 → 用可见错误横幅
                   const msg = document.createElement('div');
                   msg.textContent = `📎 ${err instanceof Error ? err.message : String(err)}`;
                   msg.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;background:#fef2f2;color:#dc2626;padding:10px 20px;border-radius:8px;font-size:13px;border:1px solid #fecaca;max-width:80%;box-shadow:0 4px 12px rgba(0,0,0,0.15)';
@@ -310,6 +313,7 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
                 }
               })();
             }}
+            appearance={CORKBOARD_APPEARANCE}
           />
         </main>
 

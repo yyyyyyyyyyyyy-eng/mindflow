@@ -15,6 +15,7 @@ export type { ThemeGalleryProps } from './themes/ThemeGallery';
 export { createBrowserMeasureText, MIND_FONT_FAMILY } from './measure';
 export { DEFAULT_APPEARANCE, mergeAppearance } from './appearance';
 export type { AppearanceConfig, CardStyle, PinStyle, CardButtonStyle, RopeStyle, RopeLayer, BackgroundStyle } from './appearance';
+export { CORKBOARD_APPEARANCE, CORKBOARD_NODE_COLORS } from './appearanceCorkboard';
 export { thumbnailModel } from './thumb/DocThumbnailModel';
 export type { ThumbModel, ThumbNode } from './thumb/DocThumbnailModel';
 export { DocThumbnail } from './thumb/DocThumbnail';
