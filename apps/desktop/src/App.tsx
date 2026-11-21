@@ -18,7 +18,7 @@ import { CORKBOARD_APPEARANCE } from 'mindflow-ui';
 import HomePage from './components/HomePage';
 import { createEmptyDoc } from './lib/emptyDoc';
 import { parseImportFile } from './lib/importFile';
-import { filesToAttachments, openFileDialogForAttachments } from './lib/attachments';
+import { filesToAttachments } from './lib/attachments';
 // 注意：编辑器工具栏的「导入」已移除（用户口径：文件拖入 + 回形针替代）；主页导入保留
 import { exportMflow, exportMarkdown, exportOpml, exportPng } from './lib/exporters';
 import { localStorageAdapter } from './lib/localStorageAdapter';
@@ -194,6 +194,33 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
     };
   }, []);
 
+  // 全局快捷键：⌘Z / ⇧⌘Z / ⌘S（window 级监听，大纲/画布/Inspector 任何位置生效）
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        service.undo();
+      } else if (mod && e.key === 'z' && e.shiftKey) {
+        e.preventDefault();
+        service.redo();
+      } else if (mod && e.key === 's') {
+        e.preventDefault();
+        void service.flushSave();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [service]);
+
+  // 保存指示器：文档变更 → ● 编辑中；2.1s 后 → ✓ 已保存（与防抖同步）
+  const [saved, setSaved] = useState(true);
+  useEffect(() => {
+    setSaved(false);
+    const t = setTimeout(() => setSaved(true), 2100);
+    return () => clearTimeout(t);
+  }, [doc]);
+
   // 页面关闭前立即落盘（防抖队列里可能还有未写盘内容）
   useEffect(() => {
     const handler = () => { void service.flushSave(); };
@@ -258,6 +285,12 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
           dbg({ k: 'redo-click', ok: service.redo() });
         }} title="重做 (⇧⌘Z)">↷ 重做</button>
         <span className="mx-1 h-6 w-px bg-gray-200" />
+        <span
+          className={`text-[11px] ${saved ? 'text-green-600' : 'text-orange-500'}`}
+          title={saved ? '已保存' : '编辑中（2 秒后自动保存）'}
+        >
+          {saved ? '✓ 已保存' : '● 编辑中'}
+        </span>
         <select
           className={`${btn} w-36`}
           value={doc.structure}
@@ -306,25 +339,6 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
                   const l = findNode(d.root, id);
                   if (l) l.node.attachments = [...(l.node.attachments ?? []), ...newAtts];
                 });
-              })();
-            }}
-            onOpenFileDialog={(id) => {
-              void (async () => {
-                try {
-                  const files = await openFileDialogForAttachments();
-                  if (files.length === 0) return;
-                  const newAtts = await filesToAttachments(files);
-                  onDocChange((d) => {
-                    const l = findNode(d.root, id);
-                    if (l) l.node.attachments = [...(l.node.attachments ?? []), ...newAtts];
-                  });
-                } catch (err) {
-                  const msg = document.createElement('div');
-                  msg.textContent = `📎 ${err instanceof Error ? err.message : String(err)}`;
-                  msg.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;background:#fef2f2;color:#dc2626;padding:10px 20px;border-radius:8px;font-size:13px;border:1px solid #fecaca;max-width:80%;box-shadow:0 4px 12px rgba(0,0,0,0.15)';
-                  document.body.appendChild(msg);
-                  setTimeout(() => msg.remove(), 5000);
-                }
               })();
             }}
             appearance={CORKBOARD_APPEARANCE}
