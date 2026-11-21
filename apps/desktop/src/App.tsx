@@ -194,16 +194,14 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
     };
   }, []);
 
-  // 全局外观：卡片/画布自定义背景图（data URI）
-  const [cardBg, setCardBg] = useState<string | undefined>(undefined);
+  // 全局外观：画布自定义背景图（data URI）
   const [canvasBg, setCanvasBg] = useState<string | undefined>(undefined);
 
   // 合成当前外观（corkboard 基底 + 用户自定义背景图覆盖）
   const currentAppearance = useMemo(() => ({
     ...CORKBOARD_APPEARANCE,
-    card: { ...CORKBOARD_APPEARANCE.card, backgroundImage: cardBg },
     background: { ...CORKBOARD_APPEARANCE.background, image: canvasBg },
-  }), [cardBg, canvasBg]);
+  }), [canvasBg]);
 
   // 全局快捷键：⌘Z / ⇧⌘Z / ⌘S（window 级监听，大纲/画布/Inspector 任何位置生效）
   useEffect(() => {
@@ -375,39 +373,16 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
                 current={doc.theme}
                 onSelect={(id) => onDocChange((d) => { d.theme = id; })}
               />
-              {/* 背景图设置（在主题面板内） */}
+              {/* 背景图设置（仅画布背景，主题面板内） */}
               <div style={{ padding: '10px 12px', borderTop: '1px solid #f2f4f7' }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#98a2b3', display: 'block', marginBottom: 6 }}>背景图</span>
-                <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
-                  <label style={{
-                    flex: 1, cursor: 'pointer', textAlign: 'center', fontSize: 12,
-                    border: cardBg ? '1px solid #4f7cf7' : '1px dashed #d0d5dd',
-                    borderRadius: 6, padding: '6px 4px', color: '#475467',
-                  }}>
-                    {cardBg ? '🖼 卡片背景已设' : '🖼 卡片背景图'}
-                    <input type="file" accept="image/*" style={{ display: 'none' }}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        e.target.value = '';
-                        if (!f || !f.type.startsWith('image/') || f.size > 500 * 1024) return;
-                        const reader = new FileReader();
-                        reader.onload = () => { if (typeof reader.result === 'string') setCardBg(reader.result); };
-                        reader.readAsDataURL(f);
-                      }}
-                    />
-                  </label>
-                  {cardBg && (
-                    <button type="button" onClick={() => setCardBg(undefined)}
-                      style={{ border: 0, background: 'none', cursor: 'pointer', color: '#98a2b3', fontSize: 12 }}>✕</button>
-                  )}
-                </div>
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#98a2b3', display: 'block', marginBottom: 6 }}>画布背景</span>
                 <div style={{ display: 'flex', gap: 4 }}>
                   <label style={{
                     flex: 1, cursor: 'pointer', textAlign: 'center', fontSize: 12,
                     border: canvasBg ? '1px solid #4f7cf7' : '1px dashed #d0d5dd',
                     borderRadius: 6, padding: '6px 4px', color: '#475467',
                   }}>
-                    {canvasBg ? '🖼 画布背景已设' : '🖼 画布背景图'}
+                    {canvasBg ? '🖼 画布背景已设' : '🖼 上传画布背景图'}
                     <input type="file" accept="image/*" style={{ display: 'none' }}
                       onChange={(e) => {
                         const f = e.target.files?.[0];
