@@ -1,69 +1,51 @@
 // ============================================================================
-// StringEdge（type: 'branch'）：钉到钉的物理细绳。
+// StringEdge（type: 'branch'）：钉到钉的直线绳。
 //
-// - 几何源：data.pinA/pinB（卡片顶面小钉球心）；缺钉点时回退渲染布局 d；
-// - 物理：每条边一个 Rope（Verlet），静止即停 rAF——未扰动的绳零持续开销；
-// - 质感：三层描边（深色衬底 + 主题色绳身 + 白色纤维虚线）+ 12px 隐形命中层；
-// - 交互：鼠标掠过命中层 → 按指针位移注入冲量 → 绳轻微晃动后自然收敛；
-//   拖动节点时钉点随动，绳被甩起再落回（setEndpoints 天然产生摆动速度）。
+// 2026-11-21 重写：移除 Verlet 物理引擎，改为纯直线连接。
+// - 几何源：data.anchorA/anchorB（父子几何自适应锚点）
+// - 渲染：M x y L x y 直线 + appearance.rope.layers 多层描边
+// - 拖动跟随：React Flow 逐帧更新 sourceX/Y → 直线实时重画，零延迟零闪烁
+// - 主轴/主脊（data.axis）：同样直线，多层描边
 // ============================================================================
 
 import { BaseEdge } from '@xyflow/react';
 import type { EdgeProps } from '@xyflow/react';
-import { useEffect, useRef } from 'react';
 import type { AppearanceConfig } from '../appearance';
 import type { MindFlowEdge } from '../flowModel';
-import { Rope } from './ropePhysics';
-
-/** 调试探针（dev-only，同 MindMapCanvas 的 window.__mfSendDebug 机制） */
-function sendDebugEdge(kind: string, extra: Record<string, unknown> = {}): void {
-  const w = window as Window & { __mfSendDebug?: (p: Record<string, unknown>) => void };
-  w.__mfSendDebug?.({ k: kind, ...extra });
-}
 
 export interface StringEdgeProps extends EdgeProps<MindFlowEdge> {
-  /** 外观（从 Canvas 合并后传入；绳层描边从此读取） */
   appearance?: AppearanceConfig;
 }
 
+/** 绳层 → SVG path style */
+function layerStyle(
+  layer: { stroke: string | ((c: string) => string); width: number; dash?: string; linecap?: string; opacity?: number },
+  themeColor: string,
+): React.SVGProps<SVGPathElement> {
+  return {
+    stroke: typeof layer.stroke === 'function' ? layer.stroke(themeColor) : layer.stroke,
+    strokeWidth: layer.width,
+    strokeDasharray: layer.dash,
+    strokeLinecap: (layer.linecap ?? 'round') as 'round' | 'butt' | 'square',
+    opacity: layer.opacity,
+    fill: 'none',
+    pointerEvents: 'none',
+  };
+}
+
 export function StringEdge({ id, data, sourceX, sourceY, targetX, targetY, appearance }: StringEdgeProps) {
-  const pathsRef = useRef<Array<SVGPathElement | null>>([]);
-  const ropeRef = useRef<Rope | null>(null);
-  const rafRef = useRef(0);
-  const lastPtr = useRef<{ x: number; y: number } | null>(null);
-  /** 上次应用的钉点坐标（死区防抖：微抖 <0.5px 忽略——提交/重渲染的亚像素抖动不再扰绳） */
-  const lastPins = useRef<{ ax: number; ay: number; bx: number; by: number } | null>(null);
+  const fallbackD = data?.d;
+  const color = data?.color ?? '#4f7cf7';
+  const rs = appearance?.rope;
 
-  const writeAll = (d: string) => {
-    for (const p of pathsRef.current) p?.setAttribute('d', d);
-  };  /** 停止循环：取消挂起的 rAF 并清零引用（防僵尸 ID 卡死后续 ensureLoop——StrictMode 双挂载下必现） */
-  const stopLoop = () => {
-    if (rafRef.current !== 0) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = 0;
-    }
-  };
+  // 绳层（从 appearance.rope.layers 或默认值）
+  const layers = rs?.layers ?? [
+    { stroke: 'rgba(16,24,40,0.20)' as const, width: 3.5, linecap: 'round' as const },
+    { stroke: (c: string) => c, width: 2, linecap: 'round' as const },
+    { stroke: 'rgba(255,255,255,0.5)' as const, width: 0.9, dash: '2 3', linecap: 'round' as const },
+  ];
 
-  /** 模拟循环：绳未静止时逐帧推进，静止即停（零常驻开销） */
-  const ensureLoop = () => {
-    if (rafRef.current !== 0) return;
-    const tick = () => {
-      const rope = ropeRef.current;
-      if (rope === null) { rafRef.current = 0; return; }
-      rope.step();
-      writeAll(rope.pathD());
-      if (!rope.isSettled()) {
-        rafRef.current = requestAnimationFrame(tick);
-      } else {
-        rafRef.current = 0;
-      }
-    };
-    rafRef.current = requestAnimationFrame(tick);
-  };
-
-  // 实时锚点（2026-11-20 几何自适应）：
-  // live = 静态锚点 anchorA/B + 手柄位移增量（手柄现值 − 静态顶钉）——
-  // 拖动时任意锚（父底边/子底边/钉）都逐帧跟随；静止时增量归零、锚点即布局值。
+  // 实时锚点：静态锚 + 手柄增量（拖动时逐帧跟随）
   const dAX = typeof sourceX === 'number' && typeof data?.pinA?.x === 'number' ? sourceX - data.pinA.x : 0;
   const dAY = typeof sourceY === 'number' && typeof data?.pinA?.y === 'number' ? sourceY - data.pinA.y : 0;
   const dBX = typeof targetX === 'number' && typeof data?.pinB?.x === 'number' ? targetX - data.pinB.x : 0;
@@ -73,100 +55,6 @@ export function StringEdge({ id, data, sourceX, sourceY, targetX, targetY, appea
   const bX = data?.anchorB !== undefined ? data.anchorB.x + dBX : targetX;
   const bY = data?.anchorB !== undefined ? data.anchorB.y + dBY : (typeof targetY === 'number' ? targetY - 3 : undefined);
 
-  // 钉点变更：拖动中渲染简单曲线（零物理=零闪烁），停止 150ms 后切回物理模拟。
-  // 死区：<0.5px 的亚像素抖动直接忽略。
-  useEffect(() => {
-    if (aX === undefined || aY === undefined || bX === undefined || bY === undefined) return;
-    if (data?.axis === true) {
-      writeAll(`M ${aX} ${aY} L ${bX} ${bY}`);
-      return;
-    }
-    const prev = lastPins.current;
-    if (prev !== null
-      && Math.abs(prev.ax - aX) < 0.5 && Math.abs(prev.ay - aY) < 0.5
-      && Math.abs(prev.bx - bX) < 0.5 && Math.abs(prev.by - bY) < 0.5) {
-      return;                                             // 死区：提交/重渲染的微抖不进物理
-    }
-    lastPins.current = { ax: aX, ay: aY, bx: bX, by: bY };
-
-    // 拖动中：简单贝塞尔（中点 + 轻微下垂），零物理开销，跟随零延迟
-    stopLoop();                                           // 停掉可能还在跑的物理循环
-    writeAll(`M ${aX} ${aY} Q ${(aX + bX) / 2} ${(aY + bY) / 2 + 6} ${bX} ${bY}`);
-
-    // 端点稳定 150ms 后切回物理模拟（cleanup 在下次端点变化时取消此定时器）
-    const t = setTimeout(() => {
-      if (ropeRef.current === null) {
-        ropeRef.current = new Rope({ x: aX, y: aY }, { x: bX, y: bY });
-      } else {
-        ropeRef.current.setEndpoints({ x: aX, y: aY }, { x: bX, y: bY });
-      }
-      writeAll(ropeRef.current.pathD());
-      ensureLoop();
-    }, 150);
-
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aX, aY, bX, bY]);
-
-  // 卸载清理：停掉 rAF（含清零，见 stopLoop）
-  useEffect(() => () => {
-    stopLoop();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  /** 鼠标掠过：把指针位移转成冲量，注入最近质点 → 绳轻晃 */
-  const onHover = (e: React.MouseEvent) => {
-    const rope = ropeRef.current;
-    const hit = pathsRef.current[0];
-    if (rope === null || !hit) return;
-    const svg = hit.ownerSVGElement;
-    const m = svg?.getScreenCTM()?.inverse();
-    if (!m) {
-      sendDebugEdge('hover-no-ctm');                       // 探针：矩阵缺失时静默退出（排障用）
-      return;
-    }
-    const local = new DOMPoint(e.clientX, e.clientY).matrixTransform(m);
-    const prev = lastPtr.current;
-    lastPtr.current = { x: e.clientX, y: e.clientY };
-    if (prev === null) return;
-    const clamp = (v: number) => Math.max(-6, Math.min(6, v));
-    const force = {
-      x: clamp((e.clientX - prev.x) * 0.35),
-      y: clamp((e.clientY - prev.y) * 0.35),
-    };
-    sendDebugEdge('hover-impulse', { x: local.x, y: local.y, fx: force.x, fy: force.y });
-    rope.disturb(local, force);
-    ensureLoop();
-  };
-
-  const fallbackD = data?.d;
-  const color = data?.color ?? '#4f7cf7';
-
-  const rs = appearance?.rope;
-  // 主轴/主脊：张紧直线（拖动时端点跟随）
-  const axisLayers = rs?.axisLayers ?? rs?.layers ?? [
-    { stroke: 'rgba(16,24,40,0.20)' as const, width: 3.5, linecap: 'round' as const },
-    { stroke: (c: string) => c, width: 2, linecap: 'round' as const },
-    { stroke: 'rgba(255,255,255,0.5)' as const, width: 0.9, dash: '2 3', linecap: 'round' as const },
-  ];
-  // 普通绳层
-  const ropeLayers = rs?.layers ?? [
-    { stroke: 'rgba(16,24,40,0.20)' as const, width: 3.5, linecap: 'round' as const },
-    { stroke: (c: string) => c, width: 2, linecap: 'round' as const },
-    { stroke: 'rgba(255,255,255,0.5)' as const, width: 0.9, dash: '2 3', linecap: 'round' as const },
-  ];
-  const hitWidth = rs?.hitWidth ?? 12;
-
-  const layerToStyle = (layer: (typeof ropeLayers)[number], themeColor: string) => ({
-    stroke: typeof layer.stroke === 'function' ? layer.stroke(themeColor) : layer.stroke,
-    strokeWidth: layer.width,
-    strokeDasharray: layer.dash,
-    strokeLinecap: layer.linecap,
-    opacity: layer.opacity,
-    fill: 'none' as const,
-    pointerEvents: 'none' as const,
-  });
-
   // 防御：钉点缺失 → 回退
   if (aX === undefined || aY === undefined || bX === undefined || bY === undefined) {
     return typeof fallbackD === 'string'
@@ -174,43 +62,14 @@ export function StringEdge({ id, data, sourceX, sourceY, targetX, targetY, appea
       : null;
   }
 
-  // 主轴/主脊
-  if (data?.axis === true) {
-    const axisD = `M ${aX} ${aY} L ${bX} ${bY}`;
-    return (
-      <g>
-        {axisLayers.map((l, i) => (
-          <path key={i} d={axisD} {...layerToStyle(l, color)} />
-        ))}
-      </g>
-    );
-  }
-
-  const initialD = typeof fallbackD === 'string' ? fallbackD : '';
+  // 直线
+  const d = `M ${aX} ${aY} L ${bX} ${bY}`;
 
   return (
     <g>
-      {/* 命中层 */}
-      <path
-        ref={(el) => { pathsRef.current[0] = el; }}
-        d={initialD}
-        fill="none"
-        stroke="transparent"
-        strokeWidth={hitWidth}
-        style={{ pointerEvents: 'stroke', cursor: 'grab' }}
-        onMouseMove={onHover}
-        onMouseLeave={() => { lastPtr.current = null; }}
-      />
-      {/* 绳层（从 appearance.rope.layers 渲染） */}
-      {ropeLayers.map((l, i) => (
-        <path
-          key={i}
-          ref={(el) => { pathsRef.current[i + 1] = el; }}
-          d={initialD}
-          {...layerToStyle(l, color)}
-        />
+      {layers.map((l, i) => (
+        <path key={i} d={d} stroke={layerStyle(l, color).stroke} strokeWidth={layerStyle(l, color).strokeWidth} strokeDasharray={layerStyle(l, color).strokeDasharray} strokeLinecap={layerStyle(l, color).strokeLinecap} opacity={layerStyle(l, color).opacity} fill="none" pointerEvents="none" />
       ))}
     </g>
   );
 }
-
