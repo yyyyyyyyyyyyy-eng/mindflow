@@ -11,6 +11,7 @@
 import { BaseEdge } from '@xyflow/react';
 import type { EdgeProps } from '@xyflow/react';
 import { useEffect, useRef } from 'react';
+import type { AppearanceConfig } from '../appearance';
 import type { MindFlowEdge } from '../flowModel';
 import { Rope } from './ropePhysics';
 
@@ -20,7 +21,12 @@ function sendDebugEdge(kind: string, extra: Record<string, unknown> = {}): void 
   w.__mfSendDebug?.({ k: kind, ...extra });
 }
 
-export function StringEdge({ id, data, sourceX, sourceY, targetX, targetY }: EdgeProps<MindFlowEdge>) {
+export interface StringEdgeProps extends EdgeProps<MindFlowEdge> {
+  /** 外观（从 Canvas 合并后传入；绳层描边从此读取） */
+  appearance?: AppearanceConfig;
+}
+
+export function StringEdge({ id, data, sourceX, sourceY, targetX, targetY, appearance }: StringEdgeProps) {
   const pathsRef = useRef<Array<SVGPathElement | null>>([]);
   const ropeRef = useRef<Rope | null>(null);
   const rafRef = useRef(0);
@@ -136,21 +142,46 @@ export function StringEdge({ id, data, sourceX, sourceY, targetX, targetY }: Edg
   const fallbackD = data?.d;
   const color = data?.color ?? '#4f7cf7';
 
-  // 防御：钉点缺失（布局与文档不一致的过渡帧）→ 回退渲染布局 d
+  const rs = appearance?.rope;
+  // 主轴/主脊：张紧直线（拖动时端点跟随）
+  const axisLayers = rs?.axisLayers ?? rs?.layers ?? [
+    { stroke: 'rgba(16,24,40,0.20)' as const, width: 3.5, linecap: 'round' as const },
+    { stroke: (c: string) => c, width: 2, linecap: 'round' as const },
+    { stroke: 'rgba(255,255,255,0.5)' as const, width: 0.9, dash: '2 3', linecap: 'round' as const },
+  ];
+  // 普通绳层
+  const ropeLayers = rs?.layers ?? [
+    { stroke: 'rgba(16,24,40,0.20)' as const, width: 3.5, linecap: 'round' as const },
+    { stroke: (c: string) => c, width: 2, linecap: 'round' as const },
+    { stroke: 'rgba(255,255,255,0.5)' as const, width: 0.9, dash: '2 3', linecap: 'round' as const },
+  ];
+  const hitWidth = rs?.hitWidth ?? 12;
+
+  const layerToStyle = (layer: (typeof ropeLayers)[number], themeColor: string) => ({
+    stroke: typeof layer.stroke === 'function' ? layer.stroke(themeColor) : layer.stroke,
+    strokeWidth: layer.width,
+    strokeDasharray: layer.dash,
+    strokeLinecap: layer.linecap,
+    opacity: layer.opacity,
+    fill: 'none' as const,
+    pointerEvents: 'none' as const,
+  });
+
+  // 防御：钉点缺失 → 回退
   if (aX === undefined || aY === undefined || bX === undefined || bY === undefined) {
     return typeof fallbackD === 'string'
       ? <BaseEdge id={id} path={fallbackD} style={{ stroke: color, strokeWidth: 2, fill: 'none' }} />
       : null;
   }
 
-  // 主轴/主脊：张紧直线（拖动时端点跟随，锚点即引擎直线段两端）
+  // 主轴/主脊
   if (data?.axis === true) {
     const axisD = `M ${aX} ${aY} L ${bX} ${bY}`;
     return (
       <g>
-        <path d={axisD} fill="none" stroke="rgba(16,24,40,0.20)" strokeWidth={3.5} strokeLinecap="round" style={{ pointerEvents: 'none' }} />
-        <path d={axisD} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" style={{ pointerEvents: 'none' }} />
-        <path d={axisD} fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth={0.9} strokeDasharray="2 3" strokeLinecap="round" style={{ pointerEvents: 'none' }} />
+        {axisLayers.map((l, i) => (
+          <path key={i} d={axisD} {...layerToStyle(l, color)} />
+        ))}
       </g>
     );
   }
@@ -159,48 +190,27 @@ export function StringEdge({ id, data, sourceX, sourceY, targetX, targetY }: Edg
 
   return (
     <g>
-      {/* 命中层：透明加宽，pointer-events: stroke，鼠标掠过即扰动 */}
+      {/* 命中层 */}
       <path
         ref={(el) => { pathsRef.current[0] = el; }}
         d={initialD}
         fill="none"
         stroke="transparent"
-        strokeWidth={12}
+        strokeWidth={hitWidth}
         style={{ pointerEvents: 'stroke', cursor: 'grab' }}
         onMouseMove={onHover}
         onMouseLeave={() => { lastPtr.current = null; }}
       />
-      {/* 衬底：柔化绳影 */}
-      <path
-        ref={(el) => { pathsRef.current[1] = el; }}
-        d={initialD}
-        fill="none"
-        stroke="rgba(16,24,40,0.20)"
-        strokeWidth={3.5}
-        strokeLinecap="round"
-        style={{ pointerEvents: 'none' }}
-      />
-      {/* 绳身：主题色 */}
-      <path
-        ref={(el) => { pathsRef.current[2] = el; }}
-        d={initialD}
-        fill="none"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        style={{ pointerEvents: 'none' }}
-      />
-      {/* 纤维：白虚线高光，营造麻绳质感 */}
-      <path
-        ref={(el) => { pathsRef.current[3] = el; }}
-        d={initialD}
-        fill="none"
-        stroke="rgba(255,255,255,0.5)"
-        strokeWidth={0.9}
-        strokeDasharray="2 3"
-        strokeLinecap="round"
-        style={{ pointerEvents: 'none' }}
-      />
+      {/* 绳层（从 appearance.rope.layers 渲染） */}
+      {ropeLayers.map((l, i) => (
+        <path
+          key={i}
+          ref={(el) => { pathsRef.current[i + 1] = el; }}
+          d={initialD}
+          {...layerToStyle(l, color)}
+        />
+      ))}
     </g>
   );
 }
+

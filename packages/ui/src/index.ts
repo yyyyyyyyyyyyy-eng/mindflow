@@ -13,6 +13,8 @@ export type { InspectorProps } from './inspector/Inspector';
 export { ThemeGallery } from './themes/ThemeGallery';
 export type { ThemeGalleryProps } from './themes/ThemeGallery';
 export { createBrowserMeasureText, MIND_FONT_FAMILY } from './measure';
+export { DEFAULT_APPEARANCE, mergeAppearance } from './appearance';
+export type { AppearanceConfig, CardStyle, PinStyle, CardButtonStyle, RopeStyle, RopeLayer, BackgroundStyle } from './appearance';
 export { thumbnailModel } from './thumb/DocThumbnailModel';
 export type { ThumbModel, ThumbNode } from './thumb/DocThumbnailModel';
 export { DocThumbnail } from './thumb/DocThumbnail';

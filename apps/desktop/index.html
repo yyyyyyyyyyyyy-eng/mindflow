@@ -7,6 +7,19 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- 打倒旧版 Service Worker：注销全部 SW + 清空缓存（防 PWA 旧版缓存锁死） -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          for (var i = 0; i < regs.length; i++) regs[i].unregister();
+        });
+        if (window.caches) {
+          caches.keys().then(function (keys) {
+            keys.forEach(function (k) { caches.delete(k); });
+          });
+        }
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

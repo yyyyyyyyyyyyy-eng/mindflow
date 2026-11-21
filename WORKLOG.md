@@ -3,8 +3,8 @@
 > 本文件由 code-review-worklog 技能自动维护：记录每次需求澄清的问答、代码变更、Bug 及修复方案、所有需求及其实现状态。请保留全部结构标题与表格，条目按时间顺序追加。
 
 - **日志创建时间**：2026-11-18 19:46:54
-- **最近更新**：2026-11-20 22:04:13
-- **最新版本**：v0.18.10
+- **最近更新**：2026-11-21 16:53:04
+- **最新版本**：v0.19.0
 ---
 
 ## 需求跟踪
@@ -32,6 +32,7 @@
 | REQ-019 | 文件附件重构：①画布自由拖入（无需选中节点）②一个方块支持多种多个文件 ③节点上回形针按钮可导入 ④删除编辑器工具栏的「导入」按钮（只保留导出） | 2026-11-20 21:36:06 | 已完成 | capabilities 权限修正 + adapter 探测降级双保险 |
 | REQ-020 | 大纲文本实时同步画布：输入框从 defaultValue+onBlur 改为受控 value+onChange（打字即更新文档，画布实时重布局） | 2026-11-20 21:47:23 | 已完成 | 大纲→画布实时同步实测通过 |
 | REQ-021 | Bug 修复：①编辑器内回形针📎选文件后节点内容无变化 ②画布拖文件无效 ③大纲↔画布文本编辑实时同步（上轮只修了大纲→画布单向，画布行内编辑→大纲方向未验证） | 2026-11-20 21:50:07 | 已完成 | 图片压缩 + localStorage quota 守卫落地；多文件实测待用户复验 |
+| REQ-022 | 外观接口化：CardStyle / RopeStyle / BackgroundStyle 全部参数化，MindMapCanvas 增 appearance 可选 prop，默认值即当前视觉 | 2026-11-21 16:50:39 | 已完成 | 外观三层接口化完成；换肤只需传 appearance prop |
 
 <!--
   状态取值：待实现 / 进行中 / 已完成 / 已取消
@@ -478,6 +479,12 @@
 - **需求关联**：REQ-021
 - **变更摘要**：移除卡片正文内的 📎N 文件计数指示（保留底部回形针按钮的计数即可，正文区只显示文本+图片+备注符号）
 - **自查结论**：通过（tsc 0 错误；build 616ms）
+
+### CHG-048 ｜ 2026-11-21 16:53:04 ｜ 新增
+- **文件**：`packages/ui/src/appearance.ts`、`packages/ui/src/index.ts`、`packages/ui/src/canvas/{MindNode.tsx`、`StringEdge.tsx`、`MindMapCanvas.tsx}`
+- **需求关联**：REQ-022
+- **变更摘要**：外观接口化：AppearanceConfig（CardStyle + RopeStyle + BackgroundStyle）全部参数化，MindMapCanvas 增 appearance 可选 prop，MindNode/StringEdge/Background 从接口读取（不传=DEFAULT_APPEARANCE 完全一致）；RopeStyle.layers 支持函数型 stroke=(themeColor)=>color；mergeAppearance 浅合并
+- **自查结论**：通过（36 用例全绿；tsc 双包 0 错误；build 665ms）
 
 ## Bug 记录
 

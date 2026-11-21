@@ -14,8 +14,10 @@ import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import type { MindFlowNode } from '../flowModel';
 
-/** 形状 → 圆角 / 裁剪样式（diamond 用 clip-path，underline 用底边线） */
-function shapeStyle(shape: MindFlowNode['data']['shape'], fill: string): React.CSSProperties {
+import type { AppearanceConfig } from '../appearance';
+
+/** 形状 → 圆角 / 裁剪样式 */
+function shapeStyle(shape: MindFlowNode['data']['shape'], fill: string, card: AppearanceConfig['card']): React.CSSProperties {
   switch (shape) {
     case 'rect':
       return { borderRadius: 2 };
@@ -26,24 +28,24 @@ function shapeStyle(shape: MindFlowNode['data']['shape'], fill: string): React.C
     case 'diamond':
       return { clipPath: 'polygon(50% 0, 100% 50%, 50% 100%, 0 50%)' };
     default:
-      return { borderRadius: 10 };
+      return { borderRadius: card.borderRadius };
   }
 }
 
-/** 圆形小钮通用样式（左右折叠/加号共用规格，互为镜像） */
-const roundBtn = (offsetSide: 'left' | 'right'): React.CSSProperties => ({
+/** 圆形小钮（折叠/加号），从 appearance 读取尺寸配色 */
+const roundBtn = (offsetSide: 'left' | 'right', btn: AppearanceConfig['card']['buttons']): React.CSSProperties => ({
   position: 'absolute',
   [offsetSide]: -11,
   top: '50%',
   transform: 'translateY(-50%)',
-  width: 18,
-  height: 18,
+  width: btn.size,
+  height: btn.size,
   borderRadius: '50%',
-  border: '1px solid #d0d5dd',
-  background: '#fff',
-  color: '#475467',
-  fontSize: 13,
-  lineHeight: '16px',
+  border: `1px solid ${btn.borderColor}`,
+  background: btn.background,
+  color: btn.color,
+  fontSize: btn.fontSize,
+  lineHeight: `${btn.size - 2}px`,
   textAlign: 'center',
   padding: 0,
   cursor: 'pointer',
@@ -57,11 +59,12 @@ export interface MindNodeProps extends NodeProps<MindFlowNode> {
   onAddChild: (id: string) => void;                      // 右侧 +：添加子层级
   onDropFiles: (id: string, files: File[]) => void;      // 拖拽文件到节点
   onOpenFileDialog: (id: string) => void;                // 回形针：App 层处理（Tauri dialog / browser input）
+  appearance: AppearanceConfig;                          // 外观（从 Canvas 合并后传入）
 }
 
 export function MindNode({
   id, data, selected,
-  onCommitText, onLiveUpdateText, onToggleCollapse, onAddChild, onDropFiles, onOpenFileDialog,
+  onCommitText, onLiveUpdateText, onToggleCollapse, onAddChild, onDropFiles, onOpenFileDialog, appearance,
 }: MindNodeProps) {
   const [draft, setDraft] = useState<string | null>(null);  // null=非编辑态
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -83,6 +86,7 @@ export function MindNode({
     else setDraft(null);
   };
 
+  const ac = appearance.card;
   const box: React.CSSProperties = {
     width: '100%',
     height: '100%',
@@ -99,13 +103,10 @@ export function MindNode({
     overflow: 'hidden',
     boxSizing: 'border-box',
     padding: data.shape === 'diamond' ? '0 18%' : undefined,
-    cursor: 'grab',                                       // 本体 = 拖动入口
-    // 卡片质感（2026-11-20 实体感升级）：细边 + 双层投影
-    border: selected ? '2px solid rgba(79,124,247,0.9)' : '1px solid rgba(16,24,40,0.08)',
-    boxShadow: data.shape === 'underline'
-      ? undefined
-      : '0 3px 8px rgba(16,24,40,0.16), 0 1px 2px rgba(16,24,40,0.10)',
-    ...shapeStyle(data.shape, data.fill),
+    cursor: 'grab',
+    border: selected ? '2px solid rgba(79,124,247,0.9)' : ac.border,
+    boxShadow: data.shape === 'underline' ? undefined : ac.shadow,
+    ...shapeStyle(data.shape, data.fill, appearance.card),
   };
 
   // 处理拖入文件（多文件/多类型）
@@ -143,24 +144,24 @@ export function MindNode({
         {data.hasNote && <span style={{ marginLeft: 2, fontSize: 10 }}>▤</span>}
       </div>
 
-      {/* 顶上小钉：纯装饰占位（钉子+细绳预留位），无任何交互 */}
+      {/* 顶上小钉：纯装饰占位（钉子+细绳预留位），无任何交互（样式从 appearance.card.pin） */}
       <span
         aria-hidden="true"
         style={{
           position: 'absolute',
           left: '50%',
-          top: -9,
+          top: -Math.round(ac.pin.size * 0.75),
           transform: 'translateX(-50%)',
-          width: 12,
-          height: 12,
+          width: ac.pin.size,
+          height: ac.pin.size,
           borderRadius: '50%',
-          background: 'radial-gradient(circle at 30% 30%, #ffffff 0%, #d5dae3 45%, #8a94a6 100%)',
-          border: '1px solid #7c8698',
+          background: ac.pin.gradient,
+          border: `1px solid ${ac.pin.borderColor}`,
           boxShadow: '0 1px 2px rgba(16,24,40,0.35)',
-          pointerEvents: 'none',                           // 装饰：不拦截任何指针事件
+          pointerEvents: 'none',
         }}
       />
-      {/* 针杆：钉入卡片顶面 */}
+      {/* 针杆 */}
       <span
         aria-hidden="true"
         style={{
@@ -170,7 +171,7 @@ export function MindNode({
           transform: 'translateX(-50%)',
           width: 2,
           height: 8,
-          background: 'linear-gradient(#8a94a6, #5b6474)',
+          background: ac.pin.needle,
           pointerEvents: 'none',
         }}
       />
@@ -180,7 +181,7 @@ export function MindNode({
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onToggleCollapse(id); }}
-          style={roundBtn('left')}
+          style={roundBtn('left', ac.buttons)}
           title={data.collapsed ? `展开 ${data.childCount} 个子节点` : '折叠'}
         >
           {data.collapsed ? data.childCount : '−'}
@@ -191,7 +192,7 @@ export function MindNode({
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); onAddChild(id); }}
-        style={roundBtn('right')}
+        style={roundBtn('right', ac.buttons)}
         title="添加子层级"
       >
         +

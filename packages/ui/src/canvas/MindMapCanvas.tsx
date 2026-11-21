@@ -13,7 +13,8 @@ import {
   Background, BackgroundVariant, ReactFlow, ReactFlowProvider,
   useEdgesState, useNodesState, useReactFlow,
 } from '@xyflow/react';
-import type { EdgeTypes, NodeChange, NodeProps, NodeTypes, OnNodesChange } from '@xyflow/react';
+import type { EdgeProps, EdgeTypes, NodeProps, NodeTypes, OnNodesChange } from '@xyflow/react';
+import type { NodeChange } from '@xyflow/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DEFAULT_LAYOUT_OPTIONS, defaultIdGen, layout, normalizeOptions,
@@ -22,6 +23,8 @@ import type { DocNode, MindDoc, NodeId, TextSize, Theme } from 'mindflow-core';
 import { buildFlowGraph } from '../flowModel';
 import type { MindFlowEdge, MindFlowNode } from '../flowModel';
 import { MIND_FONT_FAMILY, createBrowserMeasureText } from '../measure';
+import { DEFAULT_APPEARANCE, mergeAppearance } from '../appearance';
+import type { AppearanceConfig } from '../appearance';
 import { StringEdge } from './StringEdge';
 import { MindNode } from './MindNode';
 import { ContextMenu } from './ContextMenu';
@@ -41,6 +44,8 @@ export interface MindMapCanvasProps {
   onDropFiles?: (id: NodeId, files: File[]) => void;
   /** 回形针：打开文件对话框（App 层处理 Tauri dialog / browser input） */
   onOpenFileDialog?: (id: NodeId) => void;
+  /** 外观配置（卡片/绳子/背景参数化；缺省 DEFAULT_APPEARANCE） */
+  appearance?: Partial<AppearanceConfig>;
 }
 
 /** 调试探针（dev-only）：App 侧注入 window.__mfSendDebug，未注入时零开销 */
@@ -50,7 +55,9 @@ function sendDebug(p: Record<string, unknown>): void {
   w.__mfSendDebug?.(p);
 }
 
-function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelectedChange, onDropFiles, onOpenFileDialog }: MindMapCanvasProps) {
+function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelectedChange, onDropFiles, onOpenFileDialog, appearance }: MindMapCanvasProps) {
+  // 合并外观：缺省字段取默认
+  const app = mergeAppearance(DEFAULT_APPEARANCE, appearance);
   // —— 测量与布局（文档投影的唯一几何来源） ——
   const measure = useMemo(
     () => measureText ?? createBrowserMeasureText(MIND_FONT_FAMILY),
@@ -232,6 +239,7 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
   }, [addChild, addSibling, deleteNode, editingId, effectiveSel, menu]);
 
   // —— 自定义节点/边类型 ——
+  // —— 自定义节点/边类型 ——
   const nodeTypes = useMemo(() => {
     const wrapper = (p: NodeProps<MindFlowNode>) => (
       <MindNode
@@ -242,11 +250,17 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
         onAddChild={addChild}
         onDropFiles={onDropFiles ?? (() => {})}
         onOpenFileDialog={onOpenFileDialog ?? (() => {})}
+        appearance={app}
       />
     );
     return { mind: wrapper } as unknown as NodeTypes;
-  }, [addChild, commitText, liveUpdateText, onDropFiles, onOpenFileDialog, toggleCollapse]);
-  const edgeTypes = useMemo(() => ({ branch: StringEdge }) as unknown as EdgeTypes, []);
+  }, [addChild, app, commitText, liveUpdateText, onDropFiles, onOpenFileDialog, toggleCollapse]);
+  const edgeTypes = useMemo(() => {
+    const wrapper = (props: EdgeProps<MindFlowEdge>) => (
+      <StringEdge {...props} appearance={app} />
+    );
+    return { branch: wrapper } as unknown as EdgeTypes;
+  }, [app]);
 
   return (
     <div
@@ -294,7 +308,14 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
         }}
         onDragOver={(e) => { if (e.dataTransfer?.types?.includes('Files')) e.preventDefault(); }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={24} color="#e4e7ec" />
+      {app.background.pattern !== 'none' && (
+        <Background
+          variant={app.background.pattern === 'dots' ? BackgroundVariant.Dots : BackgroundVariant.Cross}
+          gap={app.background.gap}
+          color={app.background.color}
+          size={app.background.size ?? 1}
+        />
+      )}
       </ReactFlow>
 
       {/* 中文右键菜单（替代 WKWebView 默认英文菜单） */}
