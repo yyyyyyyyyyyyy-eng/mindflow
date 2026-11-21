@@ -369,11 +369,63 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
 
         <aside className="w-72 shrink-0 overflow-auto border-l border-gray-200 bg-white">
           {showGallery && (
-            <ThemeGallery
-              themes={BUILTIN_THEMES}
-              current={doc.theme}
-              onSelect={(id) => onDocChange((d) => { d.theme = id; })}
-            />
+            <>
+              <ThemeGallery
+                themes={BUILTIN_THEMES}
+                current={doc.theme}
+                onSelect={(id) => onDocChange((d) => { d.theme = id; })}
+              />
+              {/* 背景图设置（在主题面板内） */}
+              <div style={{ padding: '10px 12px', borderTop: '1px solid #f2f4f7' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#98a2b3', display: 'block', marginBottom: 6 }}>背景图</span>
+                <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
+                  <label style={{
+                    flex: 1, cursor: 'pointer', textAlign: 'center', fontSize: 12,
+                    border: cardBg ? '1px solid #4f7cf7' : '1px dashed #d0d5dd',
+                    borderRadius: 6, padding: '6px 4px', color: '#475467',
+                  }}>
+                    {cardBg ? '🖼 卡片背景已设' : '🖼 卡片背景图'}
+                    <input type="file" accept="image/*" style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        e.target.value = '';
+                        if (!f || !f.type.startsWith('image/') || f.size > 500 * 1024) return;
+                        const reader = new FileReader();
+                        reader.onload = () => { if (typeof reader.result === 'string') setCardBg(reader.result); };
+                        reader.readAsDataURL(f);
+                      }}
+                    />
+                  </label>
+                  {cardBg && (
+                    <button type="button" onClick={() => setCardBg(undefined)}
+                      style={{ border: 0, background: 'none', cursor: 'pointer', color: '#98a2b3', fontSize: 12 }}>✕</button>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <label style={{
+                    flex: 1, cursor: 'pointer', textAlign: 'center', fontSize: 12,
+                    border: canvasBg ? '1px solid #4f7cf7' : '1px dashed #d0d5dd',
+                    borderRadius: 6, padding: '6px 4px', color: '#475467',
+                  }}>
+                    {canvasBg ? '🖼 画布背景已设' : '🖼 画布背景图'}
+                    <input type="file" accept="image/*" style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        e.target.value = '';
+                        if (!f || !f.type.startsWith('image/') || f.size > 1024 * 1024) return;
+                        const reader = new FileReader();
+                        reader.onload = () => { if (typeof reader.result === 'string') setCanvasBg(reader.result); };
+                        reader.readAsDataURL(f);
+                      }}
+                    />
+                  </label>
+                  {canvasBg && (
+                    <button type="button" onClick={() => setCanvasBg(undefined)}
+                      style={{ border: 0, background: 'none', cursor: 'pointer', color: '#98a2b3', fontSize: 12 }}>✕</button>
+                  )}
+                </div>
+              </div>
+            </>
           )}
           <Inspector
             node={selectedNode}
@@ -386,10 +438,6 @@ function Shell({ service, onExitHome, onNewDoc }: ShellProps) {
                 patchNode(id, { attachments: [...(selectedNode?.attachments ?? []), ...newAtts] });
               })();
             }}
-            onSetCardBg={setCardBg}
-            onSetCanvasBg={setCanvasBg}
-            cardBg={cardBg}
-            canvasBg={canvasBg}
           />
         </aside>
       </div>
