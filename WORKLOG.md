@@ -3,8 +3,8 @@
 > 本文件由 code-review-worklog 技能自动维护：记录每次需求澄清的问答、代码变更、Bug 及修复方案、所有需求及其实现状态。请保留全部结构标题与表格，条目按时间顺序追加。
 
 - **日志创建时间**：2026-11-18 19:46:54
-- **最近更新**：2026-11-21 17:25:02
-- **最新版本**：v0.21.0
+- **最近更新**：2026-11-21 17:28:45
+- **最新版本**：v0.21.1
 ---
 
 ## 需求跟踪
@@ -35,6 +35,7 @@
 | REQ-022 | 外观接口化：CardStyle / RopeStyle / BackgroundStyle 全部参数化，MindMapCanvas 增 appearance 可选 prop，默认值即当前视觉 | 2026-11-21 16:50:39 | 已完成 | 外观三层接口化完成；换肤只需传 appearance prop |
 | REQ-023 | 木质软木板 + 明信片风格外观预设：木纹背景、牛皮纸卡片、麻绳质感、复古配色 | 2026-11-21 16:54:30 | 已完成 | 木质软板风格上线 |
 | REQ-024 | Phase 6 收尾：组装 MindFlow.app（release 二进制 + Info.plist + icns 图标），部署到 /Applications | 2026-11-21 17:23:22 | 已完成 | MindFlow.app 已部署到 /Applications 并启动 |
+| REQ-025 | ①画布节点不再双击进入行内编辑（仅选中高亮）②编辑一律走大纲或 Inspector③删除节点底部的回形针📎按钮（文件拖拽保留） | 2026-11-21 17:26:58 | 已完成 | 画布节点不再行内编辑；回形针移除；文件拖拽保留 |
 
 <!--
   状态取值：待实现 / 进行中 / 已完成 / 已取消
@@ -505,6 +506,12 @@
 - **需求关联**：REQ-024
 - **变更摘要**：.app 打包：前端 build → cargo release（LTO+strip 1m15s）→ 组装 bundle（Info.plist + icns + ad-hoc 签名）→ ditto 部署 /Applications——从终端开发工具升级为可双击的 Mac 应用
 - **自查结论**：通过（codesign --verify ✓；open /Applications/MindFlow.app 启动 ✓）
+
+### CHG-052 ｜ 2026-11-21 17:28:45 ｜ 修改
+- **文件**：`packages/ui/src/canvas/{MindNode.tsx`、`MindMapCanvas.tsx}`
+- **需求关联**：REQ-025
+- **变更摘要**：画布卡片交互简化：①删除双击行内编辑（onNodeDoubleClick/textarea/commitText/liveUpdateText/editingId 全清除）②删除底部回形针📎按钮（文件拖拽保留）③右键「重命名」改为仅选中（编辑走大纲或 Inspector）——画布卡片职责纯展示+拖拽+折叠+加子
+- **自查结论**：通过（36 用例全绿；tsc 0；build 597ms；浏览器实测：双击无 textarea ✓ 无📎 ✓ 折叠/加号在 ✓ 大纲可编辑 ✓）
 
 ## Bug 记录
 

@@ -42,8 +42,6 @@ export interface MindMapCanvasProps {
   onSelectedChange?: (id: NodeId | null) => void;
   /** 节点文件拖入（多文件/多类型） */
   onDropFiles?: (id: NodeId, files: File[]) => void;
-  /** 回形针：打开文件对话框（App 层处理 Tauri dialog / browser input） */
-  onOpenFileDialog?: (id: NodeId) => void;
   /** 外观配置（卡片/绳子/背景参数化；缺省 DEFAULT_APPEARANCE） */
   appearance?: Partial<AppearanceConfig>;
 }
@@ -55,7 +53,7 @@ function sendDebug(p: Record<string, unknown>): void {
   w.__mfSendDebug?.(p);
 }
 
-function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelectedChange, onDropFiles, onOpenFileDialog, appearance }: MindMapCanvasProps) {
+function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelectedChange, onDropFiles, appearance }: MindMapCanvasProps) {
   // 合并外观：缺省字段取默认
   const app = mergeAppearance(DEFAULT_APPEARANCE, appearance);
   // —— 测量与布局（文档投影的唯一几何来源） ——
@@ -72,9 +70,8 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
     [doc, layoutOpts],
   );
 
-  // —— 选中与编辑态 ——
+  // —— 选中态 ——
   const [internalSel, setInternalSel] = useState<NodeId | null>(null);
-  const [editingId, setEditingId] = useState<NodeId | null>(null);
   /** 右键菜单：屏幕坐标 + 命中节点（null = 画布空白） */
   const [menu, setMenu] = useState<{ x: number; y: number; nodeId: NodeId | null } | null>(null);
   /** 有效选中：外部受控优先（App 侧驱动 Inspector），否则用内部状态 */
@@ -89,8 +86,8 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
 
   // —— graph 构建（布局 + 主题 → 节点/边投影） ——
   const graph = useMemo(
-    () => buildFlowGraph(doc, layoutResult, editingId, theme),
-    [doc, layoutResult, editingId, theme],
+    () => buildFlowGraph(doc, layoutResult, null, theme),
+    [doc, layoutResult, theme],
   );
   const graphRef = useRef(graph);
   graphRef.current = graph;
@@ -129,7 +126,6 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
       loc.node.children.push({ id, text: '分支主题', children: [] });
     });
     select(id);
-    setEditingId(id);                                    // 新节点直接进入行内编辑
   }, [onDocChange, select]);
 
   const addSibling = useCallback((afterId: NodeId) => {
@@ -145,7 +141,6 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
       loc.parent.children.splice(loc.index + 1, 0, { id, text: '分支主题', children: [] });
     });
     select(id);
-    setEditingId(id);
   }, [onDocChange, select]);
 
   const deleteNode = useCallback((id: NodeId) => {
@@ -155,8 +150,7 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
       if (!loc?.parent) return;
       loc.parent.children.splice(loc.index, 1);
     });
-    if (editingId === id) setEditingId(null);
-  }, [doc.root.id, editingId, onDocChange]);
+    }, [doc.root.id, onDocChange]);
 
   const toggleCollapse = useCallback((id: NodeId) => {
     onDocChange((d) => {
@@ -165,22 +159,7 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
     });
   }, [onDocChange]);
 
-  const commitText = useCallback((id: NodeId, text: string) => {
-    onDocChange((d) => {
-      const loc = findNode(d.root, id);
-      if (loc) loc.node.text = text;
-    });
-    setEditingId(null);
-  }, [onDocChange]);
 
-  /** 行内编辑实时同步（不退出编辑态）——画布打字 → 文档更新 → 大纲跟随 */
-  const liveUpdateText = useCallback((id: NodeId, text: string) => {
-    onDocChange((d) => {
-      const loc = findNode(d.root, id);
-      if (loc) loc.node.text = text;
-    });
-    // 不 setEditingId(null)：保持编辑态
-  }, [onDocChange]);
 
   // —— 卡片本体拖放（2026-11-20 全面重写：本体 = 唯一拖动入口）——
   // 复位用（防御路径）：setNodes(同一数组引用) 会被 React 以 Object.is 相等 bail-out
@@ -231,12 +210,11 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
   // —— 键盘（编辑态由 textarea 自行消化，不冒泡到这里） ——
   const onKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (menu !== null) { e.preventDefault(); setMenu(null); return; }   // Escape/任意键先收菜单
-    if (editingId !== null) return;
     if (!effectiveSel) return;
     if (e.key === 'Tab') { e.preventDefault(); addChild(effectiveSel); }
     else if (e.key === 'Enter') { e.preventDefault(); addSibling(effectiveSel); }
     else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteNode(effectiveSel); }
-  }, [addChild, addSibling, deleteNode, editingId, effectiveSel, menu]);
+  }, [addChild, addSibling, deleteNode, effectiveSel, menu]);
 
   // —— 自定义节点/边类型 ——
   // —— 自定义节点/边类型 ——
@@ -244,17 +222,14 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
     const wrapper = (p: NodeProps<MindFlowNode>) => (
       <MindNode
         {...p}
-        onCommitText={commitText}
-        onLiveUpdateText={liveUpdateText}
         onToggleCollapse={toggleCollapse}
         onAddChild={addChild}
         onDropFiles={onDropFiles ?? (() => {})}
-        onOpenFileDialog={onOpenFileDialog ?? (() => {})}
         appearance={app}
       />
     );
     return { mind: wrapper } as unknown as NodeTypes;
-  }, [addChild, app, commitText, liveUpdateText, onDropFiles, onOpenFileDialog, toggleCollapse]);
+  }, [addChild, app, onDropFiles, toggleCollapse]);
   const edgeTypes = useMemo(() => {
     const wrapper = (props: EdgeProps<MindFlowEdge>) => (
       <StringEdge {...props} appearance={app} />
@@ -282,7 +257,6 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
         edgeTypes={edgeTypes}
         onNodeClick={(_e, n) => { select(n.id); setMenu(null); }}
         onPaneClick={() => { select(null); setMenu(null); }}
-        onNodeDoubleClick={(_e, n) => { select(n.id); setEditingId(n.id); }}
         onNodeDragStart={(_e, node) => sendDebug({ k: 'rf-dragstart', id: node.id })}
         onNodeDragStop={onNodeDragStop}
         onNodeContextMenu={(e, n) => {
@@ -329,7 +303,7 @@ function CanvasInner({ doc, onDocChange, theme, measureText, selectedId, onSelec
           onAddChild={() => { if (menu.nodeId !== null) addChild(menu.nodeId); setMenu(null); }}
           onAddSibling={() => { if (menu.nodeId !== null) addSibling(menu.nodeId); setMenu(null); }}
           onRename={() => {
-            if (menu.nodeId !== null) { select(menu.nodeId); setEditingId(menu.nodeId); }
+            if (menu.nodeId !== null) select(menu.nodeId);
             setMenu(null);
           }}
           onToggleCollapse={() => { if (menu.nodeId !== null) toggleCollapse(menu.nodeId); setMenu(null); }}
